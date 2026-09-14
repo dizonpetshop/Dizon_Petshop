@@ -3778,3 +3778,33 @@ body.premium-products-page.theme-light .top-navbar > div:first-child > strong { 
 .admin-setup-grid { display:grid;gap:10px;grid-template-columns:1fr 1fr; }
 .admin-setup-card form > button { background:#205fca;border:0;border-radius:11px;color:#fff;font-size:.75rem;font-weight:800;margin-top:5px;padding:12px; }
 .admin-setup-card > a { color:#62748e;display:block;font-size:.68rem;margin-top:16px;text-align:center; }
+
+/* Separated product collections: food, shampoo, and other essentials. */
+.catalog-tools { align-items:center;display:flex;gap:10px; }
+.pet-filter-label { align-items:center;background:#fff;border:1px solid #d9e4ef;border-radius:12px;color:#2f6edf;display:flex;gap:7px;padding:8px 11px; }
+.pet-filter-label select { background:transparent;border:0;color:#536985;font-size:.7rem;font-weight:700;outline:0; }
+.product-group-filters button i { margin-right:5px; }
+.catalog-product-group { margin:0 auto 34px;max-width:1160px; }
+.catalog-group-heading { align-items:center;display:grid;gap:12px;grid-template-columns:46px 1fr auto;margin-bottom:14px; }
+.catalog-group-heading > span { align-items:center;background:#dfeaff;border-radius:13px;color:#2f6edf;display:flex;font-size:1rem;height:46px;justify-content:center;width:46px; }
+.catalog-product-group[data-product-section="Shampoo"] .catalog-group-heading > span { background:#e1f6f2;color:#16806d; }
+.catalog-product-group[data-product-section="Other"] .catalog-group-heading > span { background:#fff0dc;color:#b67315; }
+.catalog-group-heading h2 { color:#142e55;font-family:'Playfair Display',Georgia,serif;font-size:1.35rem;font-weight:800;margin:0; }
+.catalog-group-heading p { color:#79879a;font-size:.68rem;margin:2px 0 0; }
+.catalog-group-heading > strong { background:#fff;border:1px solid #dce5ef;border-radius:999px;color:#6d7e95;font-size:.62rem;padding:7px 10px; }
+
+@media (max-width: 768px) {
+    .catalog-tools { align-items:stretch;flex-direction:column; }
+    .pet-filter-label,.catalog-search { width:100%; }
+    .pet-filter-label select { flex:1; }
+    .product-group-filters { overflow-x:auto;width:100%; }
+    .product-group-filters button { flex:1;white-space:nowrap; }
+}
+
+@media (max-width: 480px) {
+    .catalog-group-heading { grid-template-columns:40px 1fr; }
+    .catalog-group-heading > span { height:40px;width:40px; }
+    .catalog-group-heading > strong { display:none; }
+    .catalog-group-heading p { display:none; }
+    .product-group-filters button { font-size:.58rem; }
+}

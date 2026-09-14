@@ -30,19 +30,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $price = filter_var($_POST['price'] ?? null, FILTER_VALIDATE_FLOAT);
             $stock = filter_var($_POST['stock_quantity'] ?? null, FILTER_VALIDATE_INT);
             $reorder = filter_var($_POST['reorder_level'] ?? null, FILTER_VALIDATE_INT);
+            $productName = trim($_POST['product_name'] ?? '');
+            $category = trim($_POST['category'] ?? '');
+            $group = stripos($productName, 'shampoo') !== false ? 'Shampoo' : (stripos($category, 'food') !== false ? 'Food' : 'Other');
             if (!$id || $price === false || $price < 0 || $stock === false || $stock < 0 || $reorder === false || $reorder < 0) throw new RuntimeException('Enter valid product values.');
-            $stmt = $pdo->prepare('UPDATE products SET product_name=?, category=?, price=?, stock_quantity=?, reorder_level=?, is_active=? WHERE product_id=?');
-            $stmt->execute([trim($_POST['product_name'] ?? ''), trim($_POST['category'] ?? ''), $price, $stock, $reorder, isset($_POST['is_active']) ? 1 : 0, $id]);
+            $stmt = $pdo->prepare('UPDATE products SET product_name=?, category=?, product_group=?, price=?, stock_quantity=?, reorder_level=?, is_active=? WHERE product_id=?');
+            $stmt->execute([$productName, $category, $group, $price, $stock, $reorder, isset($_POST['is_active']) ? 1 : 0, $id]);
             $notice = 'Product information and quantity updated.';
         } elseif ($action === 'product_add') {
             $sku = strtoupper(trim($_POST['sku'] ?? ''));
             $name = trim($_POST['product_name'] ?? '');
             $category = trim($_POST['category'] ?? '');
+            $group = stripos($name, 'shampoo') !== false ? 'Shampoo' : (stripos($category, 'food') !== false ? 'Food' : 'Other');
             $price = filter_var($_POST['price'] ?? null, FILTER_VALIDATE_FLOAT);
             $stock = filter_var($_POST['stock_quantity'] ?? null, FILTER_VALIDATE_INT);
             if ($sku === '' || $name === '' || $category === '' || $price === false || $price < 0 || $stock === false || $stock < 0) throw new RuntimeException('Complete all required product fields.');
-            $stmt = $pdo->prepare('INSERT INTO products (sku,product_name,category,price,stock_quantity,reorder_level,description,is_active) VALUES (?,?,?,?,?,?,?,1)');
-            $stmt->execute([$sku, $name, $category, $price, $stock, max(0, (int) ($_POST['reorder_level'] ?? 5)), trim($_POST['description'] ?? '')]);
+            $stmt = $pdo->prepare('INSERT INTO products (sku,product_name,category,product_group,price,stock_quantity,reorder_level,description,is_active) VALUES (?,?,?,?,?,?,?,?,1)');
+            $stmt->execute([$sku, $name, $category, $group, $price, $stock, max(0, (int) ($_POST['reorder_level'] ?? 5)), trim($_POST['description'] ?? '')]);
             $notice = 'New product added to the catalog.';
         } elseif ($action === 'package_update') {
             $id = filter_var($_POST['pricing_id'] ?? null, FILTER_VALIDATE_INT);
