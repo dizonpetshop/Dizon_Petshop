@@ -2,8 +2,10 @@ export function productImageSrc(
   image: string | null,
   productName: string,
   category: string,
+  productId?: number,
 ) {
   const value = image?.trim();
+  if (value && /^data:image\/(?:jpeg|png|webp);base64,/i.test(value)) return productId ? `/api/products/${productId}/image` : value;
   if (value && (/^https?:\/\//i.test(value) || value.startsWith("/"))) return value;
   if (value) {
     const filename = value.replaceAll("\\", "/").split("/").pop();

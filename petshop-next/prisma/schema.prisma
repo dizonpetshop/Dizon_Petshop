@@ -69,7 +69,7 @@ model Product {
   reorderLevel   Int                      @default(5) @map("reorder_level")
   isActive       Boolean                  @default(true) @map("is_active")
   description    String?                  @db.Text
-  image          String?                  @db.VarChar(255)
+  image          String?                  @db.Text
   createdAt      DateTime                 @default(now()) @map("created_at")
   reservationItems ProductReservationItem[]
 

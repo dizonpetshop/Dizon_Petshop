@@ -8,7 +8,7 @@ function sessionSecret() {
   return new TextEncoder().encode(value);
 }
 
-export type SessionPayload = { userId: number; role: "Admin" | "User"; name: string };
+export type SessionPayload = { userId: number; role: "SuperAdmin" | "Admin" | "User"; name: string };
 
 export async function createSessionToken(payload: SessionPayload) {
   return new SignJWT(payload).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("8h").sign(sessionSecret());
@@ -18,7 +18,7 @@ export async function readSessionToken(token?: string): Promise<SessionPayload |
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, sessionSecret());
-    if (typeof payload.userId !== "number" || (payload.role !== "Admin" && payload.role !== "User")) return null;
+    if (typeof payload.userId !== "number" || !["SuperAdmin", "Admin", "User"].includes(String(payload.role))) return null;
     return payload as unknown as SessionPayload;
   } catch {
     return null;

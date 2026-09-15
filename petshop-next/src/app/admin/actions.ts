@@ -18,9 +18,9 @@ function allowed(value: string, values: readonly string[]) {
 async function requireAdmin() {
   const cookieStore = await cookies();
   const session = await readSessionToken(cookieStore.get(sessionCookieName)?.value);
-  if (session?.role !== "Admin") throw new Error("Administrator access required.");
+  if (session?.role !== "Admin" && session?.role !== "SuperAdmin") throw new Error("Administrator access required.");
   const admin = await prisma.user.findFirst({
-    where: { id: session.userId, role: "Admin", accountStatus: "Active" },
+    where: { id: session.userId, role: { in: ["Admin", "SuperAdmin"] }, accountStatus: "Active" },
     select: { id: true },
   });
   if (!admin) throw new Error("Administrator access required.");
@@ -58,6 +58,19 @@ function productImage(form: FormData) {
   return value;
 }
 
+async function uploadedProductImage(form: FormData, existing: string | null = null) {
+  const upload = form.get("imageFile");
+  if (!(upload instanceof File) || upload.size === 0) {
+    return form.has("image") ? productImage(form) : existing;
+  }
+  if (!new Set(["image/jpeg", "image/png", "image/webp"]).has(upload.type)) {
+    throw new Error("Upload a JPG, PNG, or WebP product image.");
+  }
+  if (upload.size > 1_500_000) throw new Error("Product images must be smaller than 1.5 MB.");
+  const encoded = Buffer.from(await upload.arrayBuffer()).toString("base64");
+  return `data:${upload.type};base64,${encoded}`;
+}
+
 export async function updateClientStatus(form: FormData) {
   const admin = await requireAdmin();
   const id = Number(form.get("id"));
@@ -72,7 +85,7 @@ export async function createProduct(form: FormData) {
   const group = text(form, "group");
   if (!allowed(group, productGroups)) throw new Error("Invalid product group.");
   const sku = text(form,"sku").toUpperCase();
-  await prisma.product.create({ data: { sku:sku || null, productName:text(form,"name"), category:text(form,"category"), productGroup:group, price:number(form,"price"), stockQuantity:integer(form,"stock"), reorderLevel:integer(form,"reorder"), description:text(form,"description") || null, image:productImage(form), isActive:true } });
+  await prisma.product.create({ data: { sku:sku || null, productName:text(form,"name"), category:text(form,"category"), productGroup:group, price:number(form,"price"), stockQuantity:integer(form,"stock"), reorderLevel:integer(form,"reorder"), description:text(form,"description") || null, image:await uploadedProductImage(form), isActive:true } });
   revalidatePath("/admin/dashboard");
 }
 
@@ -80,7 +93,10 @@ export async function updateProduct(form: FormData) {
   await requireAdmin();
   const group = text(form, "group");
   if (!allowed(group, productGroups)) throw new Error("Invalid product group.");
-  await prisma.product.update({ where:{ productId:id(form) }, data:{ productName:text(form,"name"), category:text(form,"category"), productGroup:group, price:number(form,"price"), stockQuantity:integer(form,"stock"), reorderLevel:integer(form,"reorder"), description:text(form,"description") || null, image:productImage(form), isActive:form.get("active")==="on" } });
+  const productId = id(form);
+  const current = await prisma.product.findUnique({ where: { productId }, select: { image: true } });
+  if (!current) throw new Error("Product not found.");
+  await prisma.product.update({ where:{ productId }, data:{ productName:text(form,"name"), category:text(form,"category"), productGroup:group, price:number(form,"price"), stockQuantity:integer(form,"stock"), reorderLevel:integer(form,"reorder"), description:text(form,"description") || null, image:await uploadedProductImage(form, current.image), isActive:form.get("active")==="on" } });
   revalidatePath("/admin/dashboard");
 }
 
