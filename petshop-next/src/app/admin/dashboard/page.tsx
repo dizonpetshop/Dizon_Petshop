@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import Brand from "@/components/Brand";
+import AdminSidebar from "@/components/AdminSidebar";
 import { prisma } from "@/lib/prisma";
 import { readSessionToken, sessionCookieName } from "@/lib/session";
 import { createProduct, updateAddon, updateClientStatus, updateGroomingStatus, updatePackage, updateProduct, updateProductReservationStatus } from "../actions";
@@ -36,7 +36,7 @@ export default async function AdminDashboard() {
   const maxProductSales = Math.max(1, ...topProducts.map(([,value]) => value));
   const maxAppointments = Math.max(1, ...appointmentStats.map(([,value]) => value), ...groomerStats.map(([,value]) => value));
 
-  return <main className="dashShell adminDash"><aside className="dashSidebar"><Brand /><nav className="dashNav"><a className="active" href="#overview"><span>⌂</span>Overview</a><a href="#clients"><span>♙</span>Clients</a><a href="#inventory"><span>▦</span>Inventory</a><a href="#packages"><span>✂</span>Packages & Prices</a><a href="#reservations"><span>◷</span>Reservations</a><a href="#reports"><span>▥</span>Reports</a></nav></aside><section className="dashContent"><header className="dashTop"><div><small>ADMIN CENTER</small><b>Welcome, {session.name}</b></div><form action="/api/auth/logout" method="post"><button className="logoutButton">Secure logout</button></form></header>
+  return <main className="dashShell adminDash"><AdminSidebar /><section className="dashContent"><header className="dashTop"><div><small>ADMIN CENTER</small><b>Welcome, {session.name}</b></div><form action="/api/auth/logout" method="post"><button className="logoutButton">Secure logout</button></form></header>
 
     <section className="dashHero" id="overview"><small>LIVE DATABASE OVERVIEW</small><h1>Good operations start here.</h1><p>Every figure and management control below is connected to the configured PostgreSQL database.</p></section>
     <section className="metricGrid"><article className="metric"><span>Client accounts</span><strong>{clients.length}</strong><small>Verified system users</small></article><article className="metric"><span>Active products</span><strong>{products.filter(item=>item.isActive).length}</strong><small>Across catalog groups</small></article><article className="metric"><span>Low-stock items</span><strong>{lowStock}</strong><small>At or below alert level</small></article><article className="metric"><span>Active bookings</span><strong>{activeAppointments}</strong><small>Pending or confirmed</small></article></section>
