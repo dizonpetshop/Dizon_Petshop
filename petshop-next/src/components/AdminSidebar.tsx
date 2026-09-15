@@ -24,24 +24,10 @@ export default function AdminSidebar() {
 
   useEffect(() => {
     const syncHash = () => setActiveSection(sectionFromHash());
-    const syncScroll = () => {
-      const marker = window.innerHeight * 0.3;
-      let current: SectionId = "overview";
-      for (const { id } of navigation) {
-        const section = document.getElementById(id);
-        if (section && section.getBoundingClientRect().top <= marker) current = id;
-      }
-      setActiveSection(current);
-    };
-
     syncHash();
     window.addEventListener("hashchange", syncHash);
-    window.addEventListener("scroll", syncScroll, { passive: true });
 
-    return () => {
-      window.removeEventListener("hashchange", syncHash);
-      window.removeEventListener("scroll", syncScroll);
-    };
+    return () => window.removeEventListener("hashchange", syncHash);
   }, []);
 
   return (
