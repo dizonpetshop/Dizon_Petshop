@@ -57,7 +57,12 @@ export default async function ClientDashboard({
     where: { email: { equals: user.email, mode: "insensitive" } },
   }), null);
 
-  const [pets, appointments, productReservations, products, pricing, groomers] = await Promise.all([
+  const products = await queryOr("products", () => prisma.product.findMany({
+    where: { isActive: true },
+    orderBy: [{ productGroup: "asc" }, { productName: "asc" }],
+  }), []);
+
+  const [pets, appointments, productReservations, pricing, groomers] = await Promise.all([
     customer
       ? queryOr("pets", () => prisma.pet.findMany({ where: { customerId: customer.id }, orderBy: { createdAt: "desc" } }), [])
       : [],
@@ -75,10 +80,6 @@ export default async function ClientDashboard({
           orderBy: { createdAt: "desc" },
         }), [])
       : [],
-    queryOr("products", () => prisma.product.findMany({
-      where: { isActive: true },
-      orderBy: [{ productGroup: "asc" }, { productName: "asc" }],
-    }), []),
     queryOr("grooming prices", () => prisma.styleSizePricing.findMany({ include: { style: true }, orderBy: [{ styleId: "asc" }, { pricingId: "asc" }] }), []),
     queryOr("groomers", () => prisma.groomer.findMany({ where: { isActive: true }, orderBy: { groomerName: "asc" } }), []),
   ]);

@@ -3,11 +3,16 @@ import PublicHeader from "@/components/PublicHeader";
 import ContactFooter from "@/components/ContactFooter";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 const money = (value: { toString(): string }) => new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(value.toString()));
 
 export default async function Home() {
-  const [products, prices, groomers] = await Promise.all([
-    prisma.product.findMany({ where: { isActive: true }, orderBy: [{ productGroup: "asc" }, { productName: "asc" }], take: 6 }).catch(() => []),
+  const products = await prisma.product.findMany({ where: { isActive: true }, orderBy: [{ productGroup: "asc" }, { productName: "asc" }], take: 6 }).catch((error) => {
+    console.error("[homepage] products query failed", error);
+    return [];
+  });
+  const [prices, groomers] = await Promise.all([
     prisma.styleSizePricing.findMany({ include: { style: true }, orderBy: [{ styleId: "asc" }, { pricingId: "asc" }] }).catch(() => []),
     prisma.groomer.findMany({ where: { isActive: true }, orderBy: { groomerName: "asc" } }).catch(() => []),
   ]);
