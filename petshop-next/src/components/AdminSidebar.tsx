@@ -24,25 +24,23 @@ export default function AdminSidebar() {
 
   useEffect(() => {
     const syncHash = () => setActiveSection(sectionFromHash());
+    const syncScroll = () => {
+      const marker = window.innerHeight * 0.3;
+      let current: SectionId = "overview";
+      for (const { id } of navigation) {
+        const section = document.getElementById(id);
+        if (section && section.getBoundingClientRect().top <= marker) current = id;
+      }
+      setActiveSection(current);
+    };
+
     syncHash();
     window.addEventListener("hashchange", syncHash);
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.find((entry) => entry.isIntersecting);
-        if (visible) setActiveSection(visible.target.id as SectionId);
-      },
-      { rootMargin: "-18% 0px -68% 0px" },
-    );
-
-    navigation.forEach(({ id }) => {
-      const section = document.getElementById(id);
-      if (section) observer.observe(section);
-    });
+    window.addEventListener("scroll", syncScroll, { passive: true });
 
     return () => {
       window.removeEventListener("hashchange", syncHash);
-      observer.disconnect();
+      window.removeEventListener("scroll", syncScroll);
     };
   }, []);
 
