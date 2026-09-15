@@ -10,6 +10,7 @@ const accountStatuses = ["Active", "Suspended"] as const;
 const productGroups = ["Food", "Shampoo", "Other"] as const;
 const groomingStatuses = ["Pending", "Confirmed", "Completed", "Cancelled"] as const;
 const productReservationStatuses = ["Pending", "Confirmed", "Ready for Pickup", "Claimed", "Cancelled"] as const;
+let productImageColumnReady = false;
 
 function allowed(value: string, values: readonly string[]) {
   return values.includes(value);
@@ -67,6 +68,10 @@ async function uploadedProductImage(form: FormData, existing: string | null = nu
     throw new Error("Upload a JPG, PNG, or WebP product image.");
   }
   if (upload.size > 1_500_000) throw new Error("Product images must be smaller than 1.5 MB.");
+  if (!productImageColumnReady) {
+    await prisma.$executeRawUnsafe('ALTER TABLE "products" ALTER COLUMN "image" TYPE TEXT');
+    productImageColumnReady = true;
+  }
   const encoded = Buffer.from(await upload.arrayBuffer()).toString("base64");
   return `data:${upload.type};base64,${encoded}`;
 }

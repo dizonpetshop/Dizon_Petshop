@@ -1,5 +1,4 @@
 {
-  "buildCommand": "npx prisma migrate deploy && npm run build",
   "crons": [
     {
       "path": "/api/cron/grooming-reminders",
