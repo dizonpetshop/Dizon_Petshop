@@ -8,39 +8,10 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-enum AccountStatus {
-  Active
-  Suspended
-}
-
-enum ProductGroup {
-  Food
-  Shampoo
-  Other
-}
-
-enum GroomingStatus {
-  Pending
-  Confirmed
-  Completed
-  Cancelled
-}
-enum BookingType {
-  Salon
-  Home_Service @map("Home Service")
-}
-enum ProductReservationStatus {
-  Pending
-  Confirmed
-  Ready_for_Pickup @map("Ready for Pickup")
-  Claimed
-  Cancelled
-}
-
 model User {
-  id              Int           @id @default(autoincrement())
-  role            String        @default("User") @db.VarChar(50)
-  accountStatus   AccountStatus @default(Active) @map("account_status")
+  id              Int      @id @default(autoincrement())
+  role            String   @default("User") @db.VarChar(50)
+  accountStatus   String   @default("Active") @map("account_status")
   username        String?       @unique @db.VarChar(100)
   surname         String?       @db.VarChar(100)
   firstName       String?       @map("first_name") @db.VarChar(100)
@@ -92,7 +63,7 @@ model Product {
   sku            String?                  @unique @db.VarChar(40)
   productName    String                   @map("product_name") @db.VarChar(150)
   category       String                   @db.VarChar(100)
-  productGroup   ProductGroup             @default(Other) @map("product_group")
+  productGroup   String                   @default("Other") @map("product_group")
   price          Decimal                  @db.Decimal(10, 2)
   stockQuantity  Int                      @default(0) @map("stock_quantity")
   reorderLevel   Int                      @default(5) @map("reorder_level")
@@ -149,14 +120,14 @@ model GroomingAppointment {
   petId          Int            @map("pet_id")
   groomingStyleId Int           @map("grooming_style_id")
   groomerId      Int            @map("groomer_id")
-  bookingType    BookingType    @default(Salon) @map("booking_type")
+  bookingType    String         @default("Salon") @map("booking_type")
   serviceAddress String?        @map("service_address") @db.Text
   petSize        String         @map("pet_size") @db.VarChar(50)
   appointmentDate DateTime      @map("appointment_date") @db.Date
   appointmentTime DateTime      @map("appointment_time") @db.Time(0)
   specialInstructions String?   @map("special_instructions") @db.Text
   totalPrice     Decimal        @map("total_price") @db.Decimal(10,2)
-  status         GroomingStatus @default(Pending)
+  status         String         @default("Pending")
   cancelledAt    DateTime?      @map("cancelled_at")
   confirmationEmailSentAt DateTime? @map("confirmation_email_sent_at")
   createdAt      DateTime       @default(now()) @map("created_at")
@@ -174,7 +145,7 @@ model ProductReservation {
   reservationCode String                   @unique @map("reservation_code") @db.VarChar(24)
   customerId      Int                      @map("customer_id")
   totalAmount     Decimal                  @map("total_amount") @db.Decimal(10,2)
-  status          ProductReservationStatus @default(Pending)
+  status          String                   @default("Pending")
   reservedUntil   DateTime                 @map("reserved_until")
   createdAt       DateTime                 @default(now()) @map("created_at")
   updatedAt       DateTime                 @default(now()) @updatedAt @map("updated_at")
