@@ -2,9 +2,7 @@
 
 import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
 import Brand from "@/components/Brand";
-
-export const dashboardViews = ["dashboard", "pets", "grooming", "products", "reservations", "account"] as const;
-export type DashboardView = (typeof dashboardViews)[number];
+import { dashboardViews, type DashboardView } from "@/lib/dashboard-views";
 
 const navigation: { view: DashboardView; icon: string; label: string }[] = [
   { view: "dashboard", icon: "⌂", label: "Dashboard" },

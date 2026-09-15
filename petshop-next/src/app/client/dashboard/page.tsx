@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import ClientDashboardShell, { dashboardViews, type DashboardView } from "@/components/ClientDashboardShell";
+import ClientDashboardShell from "@/components/ClientDashboardShell";
+import { dashboardViews, type DashboardView } from "@/lib/dashboard-views";
 import { prisma } from "@/lib/prisma";
 import { readSessionToken, sessionCookieName } from "@/lib/session";
 
