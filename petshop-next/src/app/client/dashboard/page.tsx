@@ -23,13 +23,17 @@ function money(value: { toString(): string }) {
     : "Price unavailable";
 }
 
-async function queryOr<T>(label: string, query: Promise<T>, fallback: T): Promise<T> {
-  try {
-    return await query;
-  } catch (error) {
-    console.error(`[client-dashboard] ${label} query failed`, error);
-    return fallback;
+async function queryOr<T>(label: string, query: () => Promise<T>, fallback: T): Promise<T> {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      return await query();
+    } catch (error) {
+      console.error(`[client-dashboard] ${label} query failed (attempt ${attempt})`, error);
+      if (attempt === 2) return fallback;
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    }
   }
+  return fallback;
 }
 
 export default async function ClientDashboard({
@@ -49,34 +53,34 @@ export default async function ClientDashboard({
   const params = await searchParams;
   const requestedView = params.view;
   const view: DashboardView = dashboardViews.includes(requestedView as DashboardView) ? (requestedView as DashboardView) : "dashboard";
-  const customer = await queryOr("customer", prisma.customer.findFirst({
+  const customer = await queryOr("customer", () => prisma.customer.findFirst({
     where: { email: { equals: user.email, mode: "insensitive" } },
   }), null);
 
   const [pets, appointments, productReservations, products, pricing, groomers] = await Promise.all([
     customer
-      ? queryOr("pets", prisma.pet.findMany({ where: { customerId: customer.id }, orderBy: { createdAt: "desc" } }), [])
+      ? queryOr("pets", () => prisma.pet.findMany({ where: { customerId: customer.id }, orderBy: { createdAt: "desc" } }), [])
       : [],
     customer
-      ? queryOr("grooming appointments", prisma.groomingAppointment.findMany({
+      ? queryOr("grooming appointments", () => prisma.groomingAppointment.findMany({
           where: { customerId: customer.id },
           include: { pet: true, style: true, groomer: true },
           orderBy: [{ appointmentDate: "desc" }, { appointmentTime: "desc" }],
         }), [])
       : [],
     customer
-      ? queryOr("product reservations", prisma.productReservation.findMany({
+      ? queryOr("product reservations", () => prisma.productReservation.findMany({
           where: { customerId: customer.id },
           include: { items: { include: { product: true } } },
           orderBy: { createdAt: "desc" },
         }), [])
       : [],
-    queryOr("products", prisma.product.findMany({
-      where: { isActive: true, stockQuantity: { gt: 0 } },
+    queryOr("products", () => prisma.product.findMany({
+      where: { isActive: true },
       orderBy: [{ productGroup: "asc" }, { productName: "asc" }],
     }), []),
-    queryOr("grooming prices", prisma.styleSizePricing.findMany({ include: { style: true }, orderBy: [{ styleId: "asc" }, { pricingId: "asc" }] }), []),
-    queryOr("groomers", prisma.groomer.findMany({ where: { isActive: true }, orderBy: { groomerName: "asc" } }), []),
+    queryOr("grooming prices", () => prisma.styleSizePricing.findMany({ include: { style: true }, orderBy: [{ styleId: "asc" }, { pricingId: "asc" }] }), []),
+    queryOr("groomers", () => prisma.groomer.findMany({ where: { isActive: true }, orderBy: { groomerName: "asc" } }), []),
   ]);
   const styles = [...new Map(pricing.map((item) => [item.styleId, item.style])).values()];
 
@@ -134,7 +138,7 @@ export default async function ClientDashboard({
 
         <div data-dashboard-panel="products">
           <PortalSection eyebrow="PET ESSENTIALS" title="Available products" description="Browse products that are currently available in the shop.">
-            {products.length ? <div className="productBrowseGrid">{products.map((product) => <article className="productBrowseCard" key={product.productId}><small>{product.productGroup} · {product.category}</small><h3>{product.productName}</h3><p>{product.description || "Available for in-store pickup."}</p><div><strong>{money(product.price)}</strong><span>{product.stockQuantity} in stock</span></div><form action={reserveProduct} className="productReserveForm"><input type="hidden" name="productId" value={product.productId}/><label>Qty<input type="number" name="quantity" min="1" max={product.stockQuantity} defaultValue="1" required /></label><label>Payment<select name="paymentMethod"><option>Cash</option><option>GCash</option><option>Maya</option></select></label><button>Reserve</button></form></article>)}</div> : <Empty title="No products available" detail="Available inventory will appear here." />}
+            {products.length ? <div className="productBrowseGrid">{products.map((product) => <article className="productBrowseCard" key={product.productId}>{product.image ? <img className="productImage" src={product.image} alt={product.productName} loading="lazy" /> : <div className="productImagePlaceholder" aria-hidden="true">🐾</div>}<small>{product.productGroup} · {product.category}</small><h3>{product.productName}</h3><p>{product.description || "Available for in-store pickup."}</p><div><strong>{money(product.price)}</strong><span>{product.stockQuantity > 0 ? `${product.stockQuantity} in stock` : "Out of stock"}</span></div>{product.stockQuantity > 0 ? <form action={reserveProduct} className="productReserveForm"><input type="hidden" name="productId" value={product.productId}/><label>Qty<input type="number" name="quantity" min="1" max={product.stockQuantity} defaultValue="1" required /></label><label>Payment<select name="paymentMethod"><option>Cash</option><option>GCash</option><option>Maya</option></select></label><button>Reserve</button></form> : <button className="outOfStockButton" disabled>Currently unavailable</button>}</article>)}</div> : <Empty title="No products available" detail="Active inventory will appear here." />}
           </PortalSection>
         </div>
 

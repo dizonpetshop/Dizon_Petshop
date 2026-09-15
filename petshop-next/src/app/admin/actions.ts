@@ -44,6 +44,19 @@ function id(form: FormData) {
   return value;
 }
 
+function productImage(form: FormData) {
+  const value = text(form, "image");
+  if (!value) return null;
+  if (value.length > 255) throw new Error("The product image URL is too long.");
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error();
+  } catch {
+    throw new Error("Enter a valid product image URL beginning with http:// or https://.");
+  }
+  return value;
+}
+
 export async function updateClientStatus(form: FormData) {
   const admin = await requireAdmin();
   const id = Number(form.get("id"));
@@ -58,7 +71,7 @@ export async function createProduct(form: FormData) {
   const group = text(form, "group");
   if (!allowed(group, productGroups)) throw new Error("Invalid product group.");
   const sku = text(form,"sku").toUpperCase();
-  await prisma.product.create({ data: { sku:sku || null, productName:text(form,"name"), category:text(form,"category"), productGroup:group, price:number(form,"price"), stockQuantity:integer(form,"stock"), reorderLevel:integer(form,"reorder"), description:text(form,"description") || null, isActive:true } });
+  await prisma.product.create({ data: { sku:sku || null, productName:text(form,"name"), category:text(form,"category"), productGroup:group, price:number(form,"price"), stockQuantity:integer(form,"stock"), reorderLevel:integer(form,"reorder"), description:text(form,"description") || null, image:productImage(form), isActive:true } });
   revalidatePath("/admin/dashboard");
 }
 
@@ -66,7 +79,7 @@ export async function updateProduct(form: FormData) {
   await requireAdmin();
   const group = text(form, "group");
   if (!allowed(group, productGroups)) throw new Error("Invalid product group.");
-  await prisma.product.update({ where:{ productId:id(form) }, data:{ productName:text(form,"name"), category:text(form,"category"), productGroup:group, price:number(form,"price"), stockQuantity:integer(form,"stock"), reorderLevel:integer(form,"reorder"), isActive:form.get("active")==="on" } });
+  await prisma.product.update({ where:{ productId:id(form) }, data:{ productName:text(form,"name"), category:text(form,"category"), productGroup:group, price:number(form,"price"), stockQuantity:integer(form,"stock"), reorderLevel:integer(form,"reorder"), description:text(form,"description") || null, image:productImage(form), isActive:form.get("active")==="on" } });
   revalidatePath("/admin/dashboard");
 }
 
