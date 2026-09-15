@@ -18,15 +18,29 @@ const navigation: { view: View; icon: string; label: string }[] = [
 ];
 
 function date(value: Date) {
+  if (Number.isNaN(value.getTime())) return "Date unavailable";
   return value.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
 }
 
 function time(value: Date) {
+  if (Number.isNaN(value.getTime())) return "Time unavailable";
   return value.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
 }
 
 function money(value: { toString(): string }) {
-  return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(value.toString()));
+  const amount = Number(value.toString());
+  return Number.isFinite(amount)
+    ? new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(amount)
+    : "Price unavailable";
+}
+
+async function queryOr<T>(label: string, query: Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await query;
+  } catch (error) {
+    console.error(`[client-dashboard] ${label} query failed`, error);
+    return fallback;
+  }
 }
 
 export default async function ClientDashboard({
@@ -45,32 +59,32 @@ export default async function ClientDashboard({
 
   const requestedView = (await searchParams).view;
   const view: View = views.includes(requestedView as View) ? (requestedView as View) : "dashboard";
-  const customer = await prisma.customer.findFirst({
+  const customer = await queryOr("customer", prisma.customer.findFirst({
     where: { email: { equals: user.email, mode: "insensitive" } },
-  });
+  }), null);
 
   const [pets, appointments, productReservations, products] = await Promise.all([
     customer
-      ? prisma.pet.findMany({ where: { customerId: customer.id }, orderBy: { createdAt: "desc" } })
+      ? queryOr("pets", prisma.pet.findMany({ where: { customerId: customer.id }, orderBy: { createdAt: "desc" } }), [])
       : [],
     customer
-      ? prisma.groomingAppointment.findMany({
+      ? queryOr("grooming appointments", prisma.groomingAppointment.findMany({
           where: { customerId: customer.id },
           include: { pet: true, style: true, groomer: true },
           orderBy: [{ appointmentDate: "desc" }, { appointmentTime: "desc" }],
-        })
+        }), [])
       : [],
     customer
-      ? prisma.productReservation.findMany({
+      ? queryOr("product reservations", prisma.productReservation.findMany({
           where: { customerId: customer.id },
           include: { items: { include: { product: true } } },
           orderBy: { createdAt: "desc" },
-        })
+        }), [])
       : [],
-    prisma.product.findMany({
+    queryOr("products", prisma.product.findMany({
       where: { isActive: true, stockQuantity: { gt: 0 } },
       orderBy: [{ productGroup: "asc" }, { productName: "asc" }],
-    }),
+    }), []),
   ]);
 
   const upcoming = appointments.filter(
@@ -110,7 +124,7 @@ export default async function ClientDashboard({
         {view === "dashboard" && (
           <>
             <section className="dashHero">
-              <small>GOOD DAY, {session.name.toUpperCase()}</small>
+              <small>GOOD DAY, {(session.name || "CLIENT").toUpperCase()}</small>
               <h1>Care made beautifully simple.</h1>
               <p>Appointments, pet essentials, and every important update—all in one calm place.</p>
               <Link className="primaryButton" href="/client/dashboard?view=grooming">View Grooming</Link>
