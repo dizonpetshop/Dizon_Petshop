@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
+import PasswordInput from "@/components/PasswordInput";
 
 type Step = "email" | "verify" | "complete";
 
@@ -69,8 +70,8 @@ export default function ForgotPasswordForm() {
 
       {step === "verify" && <form className="legacyAuthForm" onSubmit={resetPassword}>
         <label>6-DIGIT VERIFICATION CODE<input className="otpInput" name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} placeholder="000000" required autoFocus /></label>
-        <label>NEW PASSWORD<input type="password" name="password" autoComplete="new-password" minLength={8} required /></label>
-        <label>CONFIRM NEW PASSWORD<input type="password" name="confirmPassword" autoComplete="new-password" minLength={8} required /></label>
+        <label>NEW PASSWORD<PasswordInput name="password" autoComplete="new-password" minLength={8} required /></label>
+        <label>CONFIRM NEW PASSWORD<PasswordInput name="confirmPassword" autoComplete="new-password" minLength={8} required /></label>
         <p className="passwordHint">At least 8 characters with uppercase, lowercase, a number, and a special character.</p>
         <button type="submit" disabled={loading}>{loading ? "Updating password…" : "Reset password"}</button>
         <button className="secondaryRecoveryButton" type="button" disabled={loading || cooldown > 0} onClick={() => requestCode()}>{cooldown ? `Resend code in ${cooldown}s` : "Resend verification code"}</button>
