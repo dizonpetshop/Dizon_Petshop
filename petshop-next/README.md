@@ -18,10 +18,12 @@ This is the new Next.js App Router and TypeScript foundation for the petshop sys
    Copy-Item .env.example .env.local
    ```
 
-   For the existing local XAMPP database, use this value while MySQL is running:
+   Configure the Supabase PostgreSQL pooler URLs. Use the transaction-mode pooler
+   for application traffic and the session-mode pooler for direct Prisma commands:
 
    ```env
-   DATABASE_URL="mysql://root:@127.0.0.1:3306/petshop_db"
+   DATABASE_URL="postgresql://USER:PASSWORD@SUPABASE_POOLER_HOST:6543/postgres?pgbouncer=true&sslmode=require"
+   DIRECT_URL="postgresql://USER:PASSWORD@SUPABASE_POOLER_HOST:5432/postgres?sslmode=require"
    ```
 
    Generate `AUTH_SECRET` with:
@@ -58,7 +60,7 @@ npm run start -- --hostname 0.0.0.0
 
 ## Database and access
 
-Prisma maps the existing MySQL tables in `prisma/schema.prisma`. Client and administrator logins query the database independently and create signed, HTTP-only role sessions. The proxy blocks client sessions from every `/admin/dashboard` route.
+Prisma maps the existing Supabase PostgreSQL tables in `prisma/schema.prisma`. Client and administrator logins query the database independently and create signed, HTTP-only role sessions. The proxy blocks client sessions from every `/admin/dashboard` route.
 
 The database must contain a user whose `role` is `Admin` before the private administrator URL can authenticate. First create the owner's normal account, then promote it locally from this project folder:
 
@@ -66,6 +68,14 @@ The database must contain a user whose `role` is `Admin` before the private admi
 npm run make-admin -- owner@example.com
 ```
 
-Replace the email with the owner's registered email. This command writes the `Admin` role directly to MySQL; there is intentionally no administrator registration or administrator-login link on the public website.
+Replace the email with the owner's registered email. This command writes the `Admin` role directly to PostgreSQL; there is intentionally no administrator registration or administrator-login link on the public website.
 
-For Vercel, use a hosted MySQL service and replace `DATABASE_URL` in Vercel Project Settings. Vercel cannot connect to MySQL running only on your personal computer.
+For Vercel, add `DATABASE_URL`, `DIRECT_URL`, and `AUTH_SECRET` under Project Settings > Environment Variables and enable them for Production. Never commit real connection strings. Redeploy after changing environment variables.
+
+The Supabase database contains production data, so do not run `prisma migrate reset`,
+`prisma db push`, or a destructive migration. To compare the Prisma schema with the
+existing database safely, inspect introspection output without changing the schema:
+
+```powershell
+npx prisma db pull --print
+```

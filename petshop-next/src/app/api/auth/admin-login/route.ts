@@ -7,7 +7,9 @@ export async function POST(request: Request) {
   const form = await request.formData();
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   const password = String(form.get("password") ?? "");
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
+  });
   const hash = user?.password?.startsWith("$2y$") ? "$2b$" + user.password.slice(4) : user?.password;
   const valid = user && user.role.toLowerCase() === "admin" && user.accountStatus === "Active" && hash && await compare(password, hash);
   if (!valid) return NextResponse.redirect(new URL("/admin/login?error=invalid", request.url), 303);

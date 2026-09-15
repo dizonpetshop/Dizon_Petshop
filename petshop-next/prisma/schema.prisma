@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum AccountStatus {
@@ -93,8 +94,8 @@ model Product {
   category       String                   @db.VarChar(100)
   productGroup   ProductGroup             @default(Other) @map("product_group")
   price          Decimal                  @db.Decimal(10, 2)
-  stockQuantity  Int                      @default(0) @map("stock_quantity") @db.UnsignedInt
-  reorderLevel   Int                      @default(5) @map("reorder_level") @db.UnsignedInt
+  stockQuantity  Int                      @default(0) @map("stock_quantity")
+  reorderLevel   Int                      @default(5) @map("reorder_level")
   isActive       Boolean                  @default(true) @map("is_active")
   description    String?                  @db.Text
   image          String?                  @db.VarChar(255)
@@ -142,7 +143,7 @@ model Groomer {
 }
 
 model GroomingAppointment {
-  appointmentId  BigInt         @id @default(autoincrement()) @map("appointment_id") @db.UnsignedBigInt
+  appointmentId  BigInt         @id @default(autoincrement()) @map("appointment_id")
   reservationCode String        @unique @map("reservation_code") @db.VarChar(24)
   customerId     Int            @map("customer_id")
   petId          Int            @map("pet_id")
@@ -169,7 +170,7 @@ model GroomingAppointment {
 }
 
 model ProductReservation {
-  reservationId   BigInt                   @id @default(autoincrement()) @map("reservation_id") @db.UnsignedBigInt
+  reservationId   BigInt                   @id @default(autoincrement()) @map("reservation_id")
   reservationCode String                   @unique @map("reservation_code") @db.VarChar(24)
   customerId      Int                      @map("customer_id")
   totalAmount     Decimal                  @map("total_amount") @db.Decimal(10,2)
@@ -184,10 +185,10 @@ model ProductReservation {
 }
 
 model ProductReservationItem {
-  reservationItemId BigInt             @id @default(autoincrement()) @map("reservation_item_id") @db.UnsignedBigInt
-  reservationId     BigInt             @map("reservation_id") @db.UnsignedBigInt
+  reservationItemId BigInt             @id @default(autoincrement()) @map("reservation_item_id")
+  reservationId     BigInt             @map("reservation_id")
   productId         Int                @map("product_id")
-  quantity          Int                @db.UnsignedInt
+  quantity          Int
   unitPrice         Decimal            @map("unit_price") @db.Decimal(10,2)
   reservation       ProductReservation @relation(fields:[reservationId], references:[reservationId], onDelete:Cascade)
   product           Product            @relation(fields:[productId], references:[productId])

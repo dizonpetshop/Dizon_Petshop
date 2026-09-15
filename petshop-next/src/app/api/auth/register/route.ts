@@ -12,6 +12,11 @@ export async function POST(request: Request) {
   const password = String(form.get("password") ?? "");
   if (!firstName || !surname || !phoneNumber || !email.includes("@") || password.length < 8) return NextResponse.redirect(new URL("/client/register?error=invalid",request.url),303);
   try {
+    const existingUser = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: "insensitive" } },
+      select: { id: true },
+    });
+    if (existingUser) return NextResponse.redirect(new URL("/client/register?error=exists",request.url),303);
     await prisma.user.create({data:{role:"User",accountStatus:"Active",firstName,surname,middleInitial,phoneNumber,email,password:await hash(password,12)}});
     return NextResponse.redirect(new URL("/client/login?registered=1",request.url),303);
   } catch {

@@ -10,7 +10,9 @@ export default async function ClientDashboard() {
   if (session?.role !== "User") redirect("/client/login");
   const user = await prisma.user.findUnique({where:{id:session.userId}});
   if (!user || user.role.toLowerCase()==="admin" || user.accountStatus!=="Active") redirect("/client/login");
-  const customer = await prisma.customer.findFirst({where:{email:user.email}});
+  const customer = await prisma.customer.findFirst({
+    where: { email: { equals: user.email, mode: "insensitive" } },
+  });
   const pets = customer ? await prisma.pet.count({where:{customerId:customer.id}}) : 0;
   const appointments = customer ? await prisma.groomingAppointment.findMany({where:{customerId:customer.id,status:{in:["Pending","Confirmed"]},appointmentDate:{gte:new Date(new Date().toDateString())}},include:{pet:true,style:true,groomer:true},orderBy:[{appointmentDate:"asc"},{appointmentTime:"asc"}],take:1}) : [];
   const productReservations = customer ? await prisma.productReservation.count({where:{customerId:customer.id,status:{in:["Pending","Confirmed","Ready_for_Pickup"]}}}) : 0;
