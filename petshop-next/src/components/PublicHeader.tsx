@@ -6,9 +6,10 @@ export default function PublicHeader() {
     <header className="publicHeader">
       <Brand />
       <nav aria-label="Main navigation">
-        <Link href="#services">Services</Link>
-        <Link href="#experience">Experience</Link>
-        <Link href="/how-to-run">How to Run This</Link>
+        <Link href="#about">About Us</Link>
+        <Link href="#grooming">Grooming</Link>
+        <Link href="#products">Products</Link>
+        <Link href="#contact">Contact</Link>
       </nav>
       <div className="headerActions">
         <Link href="/client/login" className="textButton">Login</Link>

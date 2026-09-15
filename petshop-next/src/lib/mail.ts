@@ -29,6 +29,25 @@ export async function sendPasswordResetCode(email: string, name: string, code: s
   });
 }
 
+export async function sendAppointmentReceived(email: string, details: { name: string; pet: string; style: string; groomer: string; date: string; time: string; bookingType: string; reference: string }) {
+  await sendSimpleMessage(email, "We received your grooming appointment", `Hello ${details.name},\n\nYour ${details.bookingType.toLowerCase()} grooming request for ${details.pet} has been received.\n\nPackage: ${details.style}\nGroomer: ${details.groomer}\nSchedule: ${details.date} at ${details.time}\nReference: ${details.reference}\n\nThe shop will update your reservation status after review.`);
+}
+
+export async function sendGroomingReminder(email: string, details: { name: string; pet: string; lastVisit: string }) {
+  await sendSimpleMessage(email, `Grooming reminder for ${details.pet}`, `Hello ${details.name},\n\nIt has been about a month since ${details.pet}'s last completed grooming visit on ${details.lastVisit}. It may be time to schedule the next grooming appointment.\n\nVisit your Dizon's Petshop client portal to choose salon or home service. If your pet is not due yet, you can ignore this reminder.`);
+}
+
+export async function sendAppointmentStatus(email: string, details: { name: string; pet: string; status: string; reference: string; bookingType: string }) {
+  const outcome = details.status === "Confirmed" ? "Your appointment is confirmed." : details.status === "Cancelled" ? "Your appointment could not be completed and has been cancelled." : `Your appointment status is now ${details.status}.`;
+  await sendSimpleMessage(email, `Grooming appointment ${details.status.toLowerCase()}`, `Hello ${details.name},\n\n${outcome}\n\nPet: ${details.pet}\nService: ${details.bookingType}\nReference: ${details.reference}\n\nYou can review the latest details in your client portal.`);
+}
+
+async function sendSimpleMessage(email: string, subject: string, message: string) {
+  const config = mailConfig();
+  const transporter = nodemailer.createTransport({ host: config.host, port: config.port, secure: config.port === 465, auth: { user: config.user, pass: config.pass } });
+  await transporter.sendMail({ from: config.from, to: email, subject, text: message, html: `<div style="background:#edf4fb;padding:28px;font-family:Arial,sans-serif;color:#0b1e40"><div style="max-width:560px;margin:auto;background:#fff;border-radius:18px;overflow:hidden"><header style="background:#0a2048;color:#fff;padding:24px;text-align:center"><h1 style="font-family:Georgia,serif;font-size:23px;margin:0">Dizon's Petshop &amp; Grooming</h1></header><div style="padding:28px;line-height:1.7;white-space:pre-line">${escapeHtml(message)}</div></div></div>` });
+}
+
 function escapeHtml(value: string) {
   return value.replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character] ?? character);
 }

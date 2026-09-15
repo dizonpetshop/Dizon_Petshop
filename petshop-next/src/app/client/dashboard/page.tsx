@@ -4,6 +4,7 @@ import ClientDashboardShell from "@/components/ClientDashboardShell";
 import { dashboardViews, type DashboardView } from "@/lib/dashboard-views";
 import { prisma } from "@/lib/prisma";
 import { readSessionToken, sessionCookieName } from "@/lib/session";
+import { bookGrooming, createPet, reserveProduct, updatePet, updateProfile } from "../actions";
 
 function date(value: Date) {
   if (Number.isNaN(value.getTime())) return "Date unavailable";
@@ -34,7 +35,7 @@ async function queryOr<T>(label: string, query: Promise<T>, fallback: T): Promis
 export default async function ClientDashboard({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string }>;
+  searchParams: Promise<{ view?: string; notice?: string }>;
 }) {
   const cookieStore = await cookies();
   const session = await readSessionToken(cookieStore.get(sessionCookieName)?.value);
@@ -45,13 +46,14 @@ export default async function ClientDashboard({
     redirect("/client/login");
   }
 
-  const requestedView = (await searchParams).view;
+  const params = await searchParams;
+  const requestedView = params.view;
   const view: DashboardView = dashboardViews.includes(requestedView as DashboardView) ? (requestedView as DashboardView) : "dashboard";
   const customer = await queryOr("customer", prisma.customer.findFirst({
     where: { email: { equals: user.email, mode: "insensitive" } },
   }), null);
 
-  const [pets, appointments, productReservations, products] = await Promise.all([
+  const [pets, appointments, productReservations, products, pricing, groomers] = await Promise.all([
     customer
       ? queryOr("pets", prisma.pet.findMany({ where: { customerId: customer.id }, orderBy: { createdAt: "desc" } }), [])
       : [],
@@ -73,7 +75,10 @@ export default async function ClientDashboard({
       where: { isActive: true, stockQuantity: { gt: 0 } },
       orderBy: [{ productGroup: "asc" }, { productName: "asc" }],
     }), []),
+    queryOr("grooming prices", prisma.styleSizePricing.findMany({ include: { style: true }, orderBy: [{ styleId: "asc" }, { pricingId: "asc" }] }), []),
+    queryOr("groomers", prisma.groomer.findMany({ where: { isActive: true }, orderBy: { groomerName: "asc" } }), []),
   ]);
+  const styles = [...new Map(pricing.map((item) => [item.styleId, item.style])).values()];
 
   const upcoming = appointments.filter(
     (item) => ["Pending", "Confirmed"].includes(item.status) && item.appointmentDate >= new Date(new Date().toDateString()),
@@ -87,6 +92,7 @@ export default async function ClientDashboard({
 
   return (
     <ClientDashboardShell initialView={view}>
+        {params.notice && <div className="portalNotice" role="status">{params.notice}</div>}
         <div data-dashboard-panel="dashboard">
             <section className="dashHero">
               <small>GOOD DAY, {(session.name || "CLIENT").toUpperCase()}</small>
@@ -113,19 +119,22 @@ export default async function ClientDashboard({
 
         <div data-dashboard-panel="pets">
           <PortalSection eyebrow="PET PROFILES" title="My pets" description="The pets registered under your customer account.">
-            {pets.length ? <div className="clientCardGrid">{pets.map((pet) => <article className="clientCard" key={pet.id}><span className="clientCardIcon">🐾</span><div><h3>{pet.petName}</h3><p>{[pet.species, pet.breed].filter(Boolean).join(" · ") || "Pet details not yet provided"}</p></div></article>)}</div> : <Empty title="No pets registered" detail="Ask the shop to add your pet profile to this account." />}
+            <details className="clientActionPanel"><summary>＋ Add a pet profile</summary><form action={createPet} className="clientActionForm"><label>Pet name<input name="petName" required /></label><label>Species<select name="species" defaultValue="Dog"><option>Dog</option><option>Cat</option><option>Other</option></select></label><label>Breed<input name="breed" /></label><button>Add pet</button></form></details>
+            {pets.length ? <div className="clientCardGrid">{pets.map((pet) => <form action={updatePet} className="clientEditCard" key={pet.id}><input type="hidden" name="id" value={pet.id}/><span className="clientCardIcon">🐾</span><label>Pet name<input name="petName" defaultValue={pet.petName} required /></label><label>Species<select name="species" defaultValue={pet.species || "Dog"}><option>Dog</option><option>Cat</option><option>Other</option></select></label><label>Breed<input name="breed" defaultValue={pet.breed || ""} /></label><button>Save pet</button></form>)}</div> : <Empty title="No pets registered" detail="Add your first pet profile above." />}
           </PortalSection>
         </div>
 
         <div data-dashboard-panel="grooming">
-          <PortalSection eyebrow="CARE SCHEDULE" title="Grooming" description="Review your upcoming and previous grooming appointments.">
+          <PortalSection eyebrow="CARE SCHEDULE" title="Grooming" description="Compare hairstyles, size-based prices, and available groomers, then reserve salon or home service.">
+            <div className="groomingCatalog">{styles.map((style) => <article key={style.styleId}><h3>{style.styleName}</h3>{pricing.filter((item) => item.styleId === style.styleId).map((item) => <p key={item.pricingId}><span>{item.petSize}</span><b>{money(item.price)}</b></p>)}</article>)}</div>
+            {pets.length && styles.length && groomers.length ? <details className="clientActionPanel" open><summary>Book a grooming appointment</summary><form action={bookGrooming} className="clientActionForm bookingForm"><label>Pet<select name="petId">{pets.map((pet) => <option value={pet.id} key={pet.id}>{pet.petName}</option>)}</select></label><label>Hairstyle / package<select name="styleId">{styles.map((style) => <option value={style.styleId} key={style.styleId}>{style.styleName}</option>)}</select></label><label>Pet size<select name="petSize"><option>Small</option><option>Medium</option><option>Large</option><option>Extra Large</option><option>Giant</option></select></label><label>Groomer<select name="groomerId">{groomers.map((groomer) => <option value={groomer.groomerId} key={groomer.groomerId}>{groomer.groomerName}</option>)}</select></label><label>Service type<select name="bookingType"><option>Salon</option><option>Home Service</option></select></label><label>Date<input name="date" type="date" min={new Date().toISOString().slice(0, 10)} required /></label><label>Time<input name="time" type="time" min="09:00" max="19:00" required /></label><label className="wideField">Home-service address<input name="address" defaultValue={customer?.address || ""} placeholder="Required for home service" /></label><label className="wideField">Special instructions<textarea name="instructions" rows={3} /></label><button>Submit appointment</button></form></details> : <div className="portalHint">Add a pet profile before booking. Grooming reservations require an available package and groomer.</div>}
             {appointments.length ? <div className="clientList">{appointments.map((item) => <article className="clientListItem" key={item.appointmentId.toString()}><div><h3>{item.pet.petName} · {item.style.styleName}</h3><p>{date(item.appointmentDate)} at {time(item.appointmentTime)} · {item.groomer.groomerName}</p><small>{item.reservationCode}</small></div><span className="statusChip">{item.status}</span></article>)}</div> : <Empty title="No grooming appointments" detail="Your grooming schedule will appear here after a reservation is created." />}
           </PortalSection>
         </div>
 
         <div data-dashboard-panel="products">
           <PortalSection eyebrow="PET ESSENTIALS" title="Available products" description="Browse products that are currently available in the shop.">
-            {products.length ? <div className="productBrowseGrid">{products.map((product) => <article className="productBrowseCard" key={product.productId}><small>{product.productGroup}</small><h3>{product.productName}</h3><p>{product.description || product.category}</p><div><strong>{money(product.price)}</strong><span>{product.stockQuantity} in stock</span></div></article>)}</div> : <Empty title="No products available" detail="Available inventory will appear here." />}
+            {products.length ? <div className="productBrowseGrid">{products.map((product) => <article className="productBrowseCard" key={product.productId}><small>{product.productGroup} · {product.category}</small><h3>{product.productName}</h3><p>{product.description || "Available for in-store pickup."}</p><div><strong>{money(product.price)}</strong><span>{product.stockQuantity} in stock</span></div><form action={reserveProduct} className="productReserveForm"><input type="hidden" name="productId" value={product.productId}/><label>Qty<input type="number" name="quantity" min="1" max={product.stockQuantity} defaultValue="1" required /></label><label>Payment<select name="paymentMethod"><option>Cash</option><option>GCash</option><option>Maya</option></select></label><button>Reserve</button></form></article>)}</div> : <Empty title="No products available" detail="Available inventory will appear here." />}
           </PortalSection>
         </div>
 
@@ -136,8 +145,8 @@ export default async function ClientDashboard({
         </div>
 
         <div data-dashboard-panel="account">
-          <PortalSection eyebrow="PERSONAL DETAILS" title="My account" description="Your profile and contact information.">
-            <dl className="accountDetails"><div><dt>Name</dt><dd>{[user.firstName, user.middleInitial, user.surname].filter(Boolean).join(" ") || session.name}</dd></div><div><dt>Email address</dt><dd>{user.email}</dd></div><div><dt>Phone number</dt><dd>{user.phoneNumber || customer?.phone || "Not provided"}</dd></div><div><dt>Address</dt><dd>{customer?.address || "Not provided"}</dd></div><div><dt>Account status</dt><dd><span className="statusChip">{user.accountStatus}</span></dd></div><div><dt>Member since</dt><dd>{date(user.createdAt)}</dd></div></dl>
+          <PortalSection eyebrow="PERSONAL DETAILS" title="My account" description="Edit your contact information used for reservations and home service.">
+            <form action={updateProfile} className="profileEditForm"><label>First name<input name="firstName" defaultValue={user.firstName || ""} required /></label><label>Middle initial<input name="middleInitial" defaultValue={user.middleInitial || ""} maxLength={2} /></label><label>Surname<input name="surname" defaultValue={user.surname || ""} required /></label><label>Email address<input value={user.email} readOnly /></label><label>Phone number<input name="phone" defaultValue={user.phoneNumber || customer?.phone || ""} required /></label><label className="wideField">Address<textarea name="address" defaultValue={customer?.address || ""} rows={3} /></label><div className="profileMeta"><span>Account: <b>{user.accountStatus}</b></span><span>Member since: <b>{date(user.createdAt)}</b></span></div><button>Save profile</button></form>
           </PortalSection>
         </div>
     </ClientDashboardShell>

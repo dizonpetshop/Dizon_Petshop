@@ -1,8 +1,18 @@
 import Link from "next/link";
 import PublicHeader from "@/components/PublicHeader";
 import ContactFooter from "@/components/ContactFooter";
+import { prisma } from "@/lib/prisma";
 
-export default function Home() {
+const money = (value: { toString(): string }) => new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(value.toString()));
+
+export default async function Home() {
+  const [products, prices, groomers] = await Promise.all([
+    prisma.product.findMany({ where: { isActive: true, stockQuantity: { gt: 0 } }, orderBy: [{ productGroup: "asc" }, { productName: "asc" }], take: 6 }).catch(() => []),
+    prisma.styleSizePricing.findMany({ include: { style: true }, orderBy: [{ styleId: "asc" }, { pricingId: "asc" }] }).catch(() => []),
+    prisma.groomer.findMany({ where: { isActive: true }, orderBy: { groomerName: "asc" } }).catch(() => []),
+  ]);
+  const styles = [...new Map(prices.map((item) => [item.styleId, item.style])).values()];
+
   return (
     <>
       <PublicHeader />
@@ -32,12 +42,16 @@ export default function Home() {
           <article className="serviceCard"><span>🐾</span><h3>Pet profiles</h3><p>Keep pet details, preferences, appointment history, and reservations organized.</p><Link href="/client/register">Create a profile →</Link></article>
         </div></section>
 
+        <section className="catalogSection" id="grooming"><div className="section"><div className="sectionHeading"><span className="eyebrow">Grooming menu</span><h2>Styles and prices for every size.</h2><p>Choose an available specialist—{groomers.map((item) => item.groomerName).join(" or ") || "our grooming team"}—then reserve salon or home service from your client account.</p></div><div className="publicGroomingGrid">{styles.map((style) => <article key={style.styleId}><h3>{style.styleName}</h3>{prices.filter((price) => price.styleId === style.styleId).map((price) => <p key={price.pricingId}><span>{price.petSize}</span><b>{money(price.price)}</b></p>)}</article>)}</div><div className="catalogAction"><Link className="primaryButton" href="/client/login">Book grooming</Link></div></div></section>
+
+        <section className="section" id="products"><div className="sectionHeading"><span className="eyebrow">Retail essentials</span><h2>Food, shampoo, and trusted care products.</h2><p>Reserve available cat and dog essentials online, choose Cash, GCash, or Maya, then complete payment and pickup at the physical store.</p></div>{products.length ? <div className="publicProductGrid">{products.map((product) => <article key={product.productId}><small>{product.productGroup} · {product.category}</small><h3>{product.productName}</h3><p>{product.description || "Available for store pickup."}</p><div><b>{money(product.price)}</b><span>{product.stockQuantity} available</span></div></article>)}</div> : <div className="dashboardEmpty"><b>Catalog temporarily unavailable</b><small>Log in later to view current store inventory.</small></div>}<div className="catalogAction"><Link className="primaryButton" href="/client/login">Reserve products</Link></div></section>
+
         <section className="portalSection"><div className="portalInner"><div className="sectionHeading"><span className="eyebrow">Your pet-care account</span><h2>Start fresh or welcome back.</h2><p>Create a verified account or securely return to your personal pet-care dashboard.</p></div><div className="portalGrid">
           <Link href="/client/login" className="portalCard"><span className="portalIcon">🐕</span><span className="portalLabel">Pet parent portal</span><h3>Login</h3><p>Manage pets, grooming appointments, product reservations, pickup details, and your personal profile.</p><span>Continue as client →</span></Link>
           <Link href="/client/register" className="portalCard admin"><span className="portalIcon">🐾</span><span className="portalLabel">New pet parent</span><h3>Create account</h3><p>Verify your email, complete your customer details, and add your first pet profile.</p><span>Begin registration →</span></Link>
         </div></div></section>
 
-        <section className="section experience" id="experience"><div className="experienceVisual" /><div className="experienceCopy"><span className="eyebrow">A calmer way to care</span><h2>A premium experience from booking to pickup.</h2><p>Your system keeps the important things close: the next appointment, reserved products, available inventory, and account updates.</p><div className="featureList"><div><span>✓</span><b>Clear reservations</b><small>Live status and easy cancellation.</small></div><div><span>✓</span><b>Reliable inventory</b><small>Quantity is held as soon as a product is reserved.</small></div><div><span>✓</span><b>Protected client account</b><small>Your personal pet-care details stay private.</small></div></div></div></section>
+        <section className="section experience" id="about"><div className="experienceVisual" /><div className="experienceCopy"><span className="eyebrow">About Dizon&apos;s Pet Grooming</span><h2>A premium experience from booking to pickup.</h2><p>Your neighborhood pet-care team combines thoughtful salon and home-service grooming with trusted essentials for cats and dogs.</p><div className="featureList"><div><span>✓</span><b>Clear reservations</b><small>Live status and easy appointment tracking.</small></div><div><span>✓</span><b>Reliable inventory</b><small>Quantity is held as soon as a product is reserved.</small></div><div><span>✓</span><b>Protected client account</b><small>Your personal pet-care details stay private.</small></div></div></div></section>
 
         <section className="section"><div className="landingCta"><h2>Ready to care beautifully?</h2><p>Create your account or return to your personalized pet-care dashboard.</p><div className="heroButtons"><Link href="/client/register" className="primaryButton">Register Account</Link><Link href="/client/login" className="outlineButton">Login</Link></div></div></section>
       </main>

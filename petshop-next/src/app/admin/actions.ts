@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { readSessionToken, sessionCookieName } from "@/lib/session";
+import { sendAppointmentStatus } from "@/lib/mail";
 
 const accountStatuses = ["Active", "Suspended"] as const;
 const productGroups = ["Food", "Shampoo", "Other"] as const;
@@ -89,7 +90,14 @@ export async function updateGroomingStatus(form: FormData) {
   await requireAdmin();
   const status = text(form,"status");
   if (!allowed(status, groomingStatuses)) throw new Error("Invalid appointment status.");
-  await prisma.groomingAppointment.update({ where:{appointmentId:BigInt(text(form,"id"))}, data:{status,cancelledAt:status==="Cancelled"?new Date():null} });
+  const appointment = await prisma.groomingAppointment.update({ where:{appointmentId:BigInt(text(form,"id"))}, data:{status,cancelledAt:status==="Cancelled"?new Date():null}, include:{customer:true,pet:true} });
+  if (appointment.customer.email) {
+    try {
+      await sendAppointmentStatus(appointment.customer.email, { name:appointment.customer.customerName,pet:appointment.pet.petName,status,reference:appointment.reservationCode,bookingType:appointment.bookingType });
+    } catch (error) {
+      console.error("Appointment status saved but notification email failed", error);
+    }
+  }
   revalidatePath("/admin/dashboard");
 }
 
