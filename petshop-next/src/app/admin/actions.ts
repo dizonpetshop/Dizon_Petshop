@@ -48,6 +48,7 @@ function productImage(form: FormData) {
   const value = text(form, "image");
   if (!value) return null;
   if (value.length > 255) throw new Error("The product image URL is too long.");
+  if (/^[\w .()-]+\.(?:jpe?g|png|webp)$/i.test(value) || value.startsWith("/products/")) return value;
   try {
     const url = new URL(value);
     if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error();
