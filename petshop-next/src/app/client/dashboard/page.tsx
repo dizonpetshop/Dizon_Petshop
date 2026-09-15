@@ -58,7 +58,6 @@ export default async function ClientDashboard({
   }), null);
 
   const products = await queryOr("products", () => prisma.product.findMany({
-    where: { isActive: true },
     orderBy: [{ productGroup: "asc" }, { productName: "asc" }],
   }), []);
 
@@ -139,7 +138,7 @@ export default async function ClientDashboard({
 
         <div data-dashboard-panel="products">
           <PortalSection eyebrow="PET ESSENTIALS" title="Available products" description="Browse products that are currently available in the shop.">
-            {products.length ? <div className="productBrowseGrid">{products.map((product) => <article className="productBrowseCard" key={product.productId}>{product.image ? <img className="productImage" src={product.image} alt={product.productName} loading="lazy" /> : <div className="productImagePlaceholder" aria-hidden="true">🐾</div>}<small>{product.productGroup} · {product.category}</small><h3>{product.productName}</h3><p>{product.description || "Available for in-store pickup."}</p><div><strong>{money(product.price)}</strong><span>{product.stockQuantity > 0 ? `${product.stockQuantity} in stock` : "Out of stock"}</span></div>{product.stockQuantity > 0 ? <form action={reserveProduct} className="productReserveForm"><input type="hidden" name="productId" value={product.productId}/><label>Qty<input type="number" name="quantity" min="1" max={product.stockQuantity} defaultValue="1" required /></label><label>Payment<select name="paymentMethod"><option>Cash</option><option>GCash</option><option>Maya</option></select></label><button>Reserve</button></form> : <button className="outOfStockButton" disabled>Currently unavailable</button>}</article>)}</div> : <Empty title="No products available" detail="Active inventory will appear here." />}
+            {products.length ? <div className="productBrowseGrid">{products.map((product) => <article className="productBrowseCard" key={product.productId}>{product.image ? <img className="productImage" src={product.image} alt={product.productName} loading="lazy" /> : <div className="productImagePlaceholder" aria-hidden="true">🐾</div>}<small>{product.productGroup} · {product.category}</small><h3>{product.productName}</h3><p>{product.description || "Available for in-store pickup."}</p><div><strong>{money(product.price)}</strong><span>{product.isActive && product.stockQuantity > 0 ? `${product.stockQuantity} in stock` : "Unavailable"}</span></div>{product.isActive && product.stockQuantity > 0 ? <form action={reserveProduct} className="productReserveForm"><input type="hidden" name="productId" value={product.productId}/><label>Qty<input type="number" name="quantity" min="1" max={product.stockQuantity} defaultValue="1" required /></label><label>Payment<select name="paymentMethod"><option>Cash</option><option>GCash</option><option>Maya</option></select></label><button>Reserve</button></form> : <button className="outOfStockButton" disabled>Currently unavailable</button>}</article>)}</div> : <Empty title="No products available" detail="Inventory will appear here." />}
           </PortalSection>
         </div>
 
