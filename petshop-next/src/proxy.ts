@@ -23,7 +23,11 @@ export async function proxy(request: NextRequest) {
   if ((path === "/superadmin/login" || path === "/superadmin/setup") && session?.role === "SuperAdmin") {
     return NextResponse.redirect(new URL("/superadmin/dashboard", request.url));
   }
-  return NextResponse.next();
+  const response = NextResponse.next();
+  if (path.startsWith("/admin/dashboard") || path.startsWith("/superadmin/dashboard") || path.startsWith("/client/dashboard")) {
+    response.headers.set("Cache-Control", "private, no-store, max-age=0, must-revalidate");
+  }
+  return response;
 }
 
 export const config = { matcher: ["/admin/:path*", "/superadmin/:path*", "/client/dashboard/:path*"] };

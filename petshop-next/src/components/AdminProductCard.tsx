@@ -33,6 +33,8 @@ async function resizeUpload(file: File) {
 export default function AdminProductCard(product: ProductCardProps) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState<"success" | "error">("error");
   const [preview, setPreview] = useState(product.imageSrc);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -43,7 +45,8 @@ export default function AdminProductCard(product: ProductCardProps) {
     const resized = await resizeUpload(original);
     if (resized.size > 900_000) {
       input.value = "";
-      alert("Please choose a smaller image.");
+      setMessageTone("error");
+      setMessage("Please choose a smaller image. The optimized file is still too large.");
       return;
     }
     if (resized !== original) {
@@ -56,9 +59,15 @@ export default function AdminProductCard(product: ProductCardProps) {
 
   async function save(formData: FormData) {
     setSaving(true);
+    setMessage("");
     try {
       await updateProduct(formData);
       setEditing(false);
+      setMessageTone("success");
+      setMessage("Product updated successfully.");
+    } catch {
+      setMessageTone("error");
+      setMessage("Failed to update this product. Check the details and try again.");
     } finally {
       setSaving(false);
     }
@@ -73,6 +82,7 @@ export default function AdminProductCard(product: ProductCardProps) {
   return (
     <form action={save} className={`databaseCard ${editing ? "isEditing" : "isLocked"}`} ref={formRef}>
       <input type="hidden" name="id" value={product.id} />
+      {message && <p className={`productFormMessage ${messageTone}`} role="status">{message}</p>}
       <img className="adminProductImage" src={preview} alt={product.name} />
       <label className="productUploadControl" hidden={!editing}>
         Upload new image

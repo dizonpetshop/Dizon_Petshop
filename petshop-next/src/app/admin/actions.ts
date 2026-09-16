@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { readSessionToken, sessionCookieName } from "@/lib/session";
 import { sendAppointmentStatus } from "@/lib/mail";
@@ -81,8 +82,9 @@ export async function updateClientStatus(form: FormData) {
   const id = Number(form.get("id"));
   const status = text(form, "status");
   if (!id || id === admin.userId || !allowed(status, accountStatuses)) throw new Error("Invalid client update.");
-  await prisma.user.updateMany({ where: { id, role: { not: "Admin" } }, data: { accountStatus: status } });
+  await prisma.user.updateMany({ where: { id, role: "User" }, data: { accountStatus: status } });
   revalidatePath("/admin/dashboard");
+  redirect("/admin/dashboard?view=customers&notice=Customer%20access%20updated.");
 }
 
 export async function createProduct(form: FormData) {
@@ -92,6 +94,7 @@ export async function createProduct(form: FormData) {
   const sku = text(form,"sku").toUpperCase();
   await prisma.product.create({ data: { sku:sku || null, productName:text(form,"name"), category:text(form,"category"), productGroup:group, price:number(form,"price"), stockQuantity:integer(form,"stock"), reorderLevel:integer(form,"reorder"), description:text(form,"description") || null, image:await uploadedProductImage(form), isActive:true } });
   revalidatePath("/admin/dashboard");
+  redirect("/admin/dashboard?view=products&notice=Product%20added%20successfully.");
 }
 
 export async function updateProduct(form: FormData) {
@@ -113,12 +116,14 @@ export async function updatePackage(form: FormData) {
     await tx.groomingStyle.update({ where:{styleId:pricing.styleId}, data:{styleName:text(form,"name")} });
   });
   revalidatePath("/admin/dashboard");
+  redirect("/admin/dashboard?view=services&notice=Grooming%20package%20updated.");
 }
 
 export async function updateAddon(form: FormData) {
   await requireAdmin();
   await prisma.groomingAddon.update({ where:{addonId:id(form)}, data:{addonName:text(form,"name"),price:number(form,"price")} });
   revalidatePath("/admin/dashboard");
+  redirect("/admin/dashboard?view=services&notice=Add-on%20service%20updated.");
 }
 
 export async function updateGroomingStatus(form: FormData) {
@@ -134,6 +139,7 @@ export async function updateGroomingStatus(form: FormData) {
     }
   }
   revalidatePath("/admin/dashboard");
+  redirect("/admin/dashboard?view=reservations&notice=Reservation%20status%20updated.");
 }
 
 export async function updateProductReservationStatus(form: FormData) {
@@ -150,4 +156,5 @@ export async function updateProductReservationStatus(form: FormData) {
     await tx.productReservation.update({where:{reservationId:id},data:{status}});
   });
   revalidatePath("/admin/dashboard");
+  redirect("/admin/dashboard?view=orders&notice=Order%20status%20updated.");
 }

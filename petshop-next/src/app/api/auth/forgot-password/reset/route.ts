@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     select: { id: true, email: true, role: true, resetToken: true, resetExpires: true },
   });
   const parsed = readPasswordResetToken(user?.resetToken);
-  if (!user || user.role.toLowerCase() === "admin" || !parsed || !user.resetToken || !user.resetExpires || user.resetExpires.getTime() <= Date.now()) {
+  if (!user || user.role !== "User" || !parsed || !user.resetToken || !user.resetExpires || user.resetExpires.getTime() <= Date.now()) {
     if (user?.resetToken) await prisma.user.updateMany({ where: { id: user.id, resetToken: user.resetToken }, data: { resetToken: null, resetExpires: null } });
     return NextResponse.json({ error: "That verification code is invalid or has expired. Request a new code." }, { status: 400 });
   }

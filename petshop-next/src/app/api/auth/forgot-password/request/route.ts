@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     where: { email: { equals: email, mode: "insensitive" } },
     select: { id: true, email: true, firstName: true, role: true, accountStatus: true, resetToken: true },
   });
-  if (!user || user.role.toLowerCase() === "admin") {
+  if (!user || user.role !== "User") {
     return NextResponse.json({ error: "That email does not match a client account in our database." }, { status: 404 });
   }
   if (user.accountStatus !== "Active") {
