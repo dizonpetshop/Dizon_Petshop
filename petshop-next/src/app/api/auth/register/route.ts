@@ -1,6 +1,7 @@
 import { hash } from "bcryptjs";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isPhilippinePhone } from "@/lib/operations";
 
 export async function POST(request: Request) {
   const form = await request.formData();
@@ -10,7 +11,7 @@ export async function POST(request: Request) {
   const phoneNumber = String(form.get("phone") ?? "").trim();
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   const password = String(form.get("password") ?? "");
-  if (!firstName || !surname || !phoneNumber || !email.includes("@") || password.length < 8) return NextResponse.redirect(new URL("/client/register?error=invalid",request.url),303);
+  if (!firstName || !surname || !isPhilippinePhone(phoneNumber) || !/^\S+@\S+\.\S+$/.test(email) || password.length < 8) return NextResponse.redirect(new URL("/client/register?error=invalid",request.url),303);
   try {
     const existingUser = await prisma.user.findFirst({
       where: { email: { equals: email, mode: "insensitive" } },

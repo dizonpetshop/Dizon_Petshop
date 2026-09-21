@@ -11,7 +11,7 @@ export default async function AdminLogin({ searchParams }: { searchParams: Promi
         </div>
         <div className="legacyLoginPane">
           <div className="legacyLoginCard">
-            <div className="legacyAuthHeading"><small>THE</small><h1>DIZON&apos;S<br />PETSHOP</h1><h2>ADMIN LOGIN</h2><p>Secure access for authorized staff.</p></div>
+            <div className="legacyAuthHeading"><h1>DIZON&apos;S<br />PET GROOMING</h1><h2>ADMIN LOGIN</h2><p>Secure access for authorized staff.</p></div>
             <div className="legacyAdminNotice">🔒 Client accounts cannot sign in through this portal.</div>
             {loggedOut && <div className="authSuccess">You have been logged out securely.</div>}
             {error && <div className="authError">Invalid administrator credentials or access is suspended.</div>}

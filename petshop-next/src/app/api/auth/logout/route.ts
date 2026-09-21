@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
-import { sessionCookieName } from "@/lib/session";
+import { prisma } from "@/lib/prisma";
+import { requestIp, writeAudit } from "@/lib/operations";
+import { readSessionToken, sessionCookieName } from "@/lib/session";
 
 export async function POST(request: Request) {
+  const cookieHeader = request.headers.get("cookie") || "";
+  const token = cookieHeader.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${sessionCookieName}=`))?.slice(sessionCookieName.length + 1);
+  const session = await readSessionToken(token);
+  if (session) {
+    try { await writeAudit(prisma, { userId: session.userId, name: session.name, role: session.role === "User" ? "Customer" : session.role }, "LOGOUT", "Authentication", "User signed out.", session.userId, await requestIp()); } catch (error) { console.error("Could not write logout audit entry", error); }
+  }
   const form = await request.formData();
   const destination = String(form.get("destination") ?? "");
   const path = destination === "admin" ? "/admin/login?loggedOut=1" : destination === "superadmin" ? "/superadmin/login?loggedOut=1" : "/";

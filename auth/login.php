@@ -6,7 +6,7 @@ require_once __DIR__ . '/../public/db.php';
 $error = '';
 $success = $_SESSION['login_success'] ?? '';
 unset($_SESSION['login_success']);
-$adminExists = (bool) $pdo->query("SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(role)='admin')")->fetchColumn();
+$adminExists = (bool) $pdo->query("SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(role) IN ('admin','superadmin'))")->fetchColumn();
 
 // Authenticate only after the login form is submitted.
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -24,6 +24,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = "This account is suspended. Please contact the shop administrator.";
         } elseif ($row) {
             if ($password === $row['password'] || password_verify($password, $row['password'])) {
+                if ($password === $row['password']) {
+                    $pdo->prepare('UPDATE users SET password=? WHERE id=?')->execute([password_hash($password, PASSWORD_DEFAULT), $row['id']]);
+                }
+                session_regenerate_id(true);
                 $_SESSION['user_id'] = $row['id'];
                 $_SESSION['role']    = isset($row['role']) ? $row['role'] : 'Admin';
                 $middleInitial = !empty($row['middle_initial']) ? rtrim($row['middle_initial'], '.') . '.' : '';
@@ -42,9 +46,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 unset($_SESSION['registration_completed'], $_SESSION['customer_id']);
 
                 // Administrators enter the management workspace; customers enter the welcome page.
-                header(strtolower(trim($row['role'] ?? '')) === 'admin'
-                    ? "Location: ../public/admin.php"
-                    : "Location: dashboard.php");
+                $normalizedRole = strtolower(trim($row['role'] ?? ''));
+                if ($normalizedRole === 'superadmin') {
+                    header('Location: ../public/superadmin.php');
+                } elseif ($normalizedRole === 'admin') {
+                    header('Location: ../public/admin.php');
+                } else {
+                    header('Location: dashboard.php');
+                }
                 exit();
             } else {
                 $error = "Incorrect password. Please try again.";
@@ -115,6 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <button type="submit" class="btn btn-auth w-100 py-2 fw-bold">Login</button>
             </form>
             <?php if (!$adminExists): ?><p class="text-center mt-3 mb-0" style="font-size:.72rem;"><a href="../public/admin_register.php">Set up the first administrator</a></p><?php endif; ?>
+            <p class="text-center mt-2 mb-0" style="font-size:.72rem;"><a href="superadmin_login.php">Super Admin login</a></p>
         </div>
     </div>
 </div>

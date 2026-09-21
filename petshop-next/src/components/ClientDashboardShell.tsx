@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
 import Brand from "@/components/Brand";
+import ThemeToggle from "@/components/ThemeToggle";
 import { dashboardViews, type DashboardView } from "@/lib/dashboard-views";
 
 const navigation: { view: DashboardView; icon: string; label: string }[] = [
@@ -26,6 +27,10 @@ export default function ClientDashboardShell({
   children: ReactNode;
 }) {
   const [view, setView] = useState<DashboardView>(initialView);
+
+  useEffect(() => {
+    setView(initialView);
+  }, [initialView]);
 
   useEffect(() => {
     const syncWithHistory = () => setView(viewFromUrl());
@@ -77,8 +82,8 @@ export default function ClientDashboardShell({
 
       <section className="dashContent">
         <header className="dashTop">
-          <div><small>CLIENT PORTAL</small><b>Dizon&apos;s Petshop</b></div>
-          <form action="/api/auth/logout" method="post"><button className="logoutButton">Logout</button></form>
+          <div><small>CUSTOMER PORTAL</small><b>DIZON&apos;S Pet Grooming</b></div>
+          <div className="clientTopActions"><ThemeToggle/><form action="/api/auth/logout" method="post"><button className="logoutButton">Logout</button></form></div>
         </header>
         <div className="dashboardPanels" data-active-view={view} onClick={handlePanelLink}>
           {children}

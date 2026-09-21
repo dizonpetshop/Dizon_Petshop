@@ -1,20 +1,23 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import ClientDashboardShell from "@/components/ClientDashboardShell";
+import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
+import GroomingBookingForm from "@/components/GroomingBookingForm";
+import ProductReserveForm from "@/components/ProductReserveForm";
 import { dashboardViews, type DashboardView } from "@/lib/dashboard-views";
 import { prisma } from "@/lib/prisma";
-import { productImageSrc } from "@/lib/product-image";
+import { productImageSrc, productImageUrl } from "@/lib/product-image";
 import { readSessionToken, sessionCookieName } from "@/lib/session";
-import { bookGrooming, createPet, reserveProduct, updatePet, updateProfile } from "../actions";
+import { cancelGroomingAppointment, cancelProductReservation, createPet, updatePet, updateProfile } from "../actions";
 
 function date(value: Date) {
   if (Number.isNaN(value.getTime())) return "Date unavailable";
-  return value.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
+  return value.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric", timeZone: "Asia/Manila" });
 }
 
 function time(value: Date) {
   if (Number.isNaN(value.getTime())) return "Time unavailable";
-  return value.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
+  return value.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Manila" });
 }
 
 function money(value: { toString(): string }) {
@@ -46,8 +49,8 @@ export default async function ClientDashboard({
   const session = await readSessionToken(cookieStore.get(sessionCookieName)?.value);
   if (session?.role !== "User") redirect("/client/login");
 
-  const user = await prisma.user.findUnique({ where: { id: session.userId } });
-  if (!user || user.role.toLowerCase() === "admin" || user.accountStatus !== "Active") {
+  const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { id: true, role: true, accountStatus: true, email: true, firstName: true, middleInitial: true, surname: true, phoneNumber: true, createdAt: true } });
+  if (!user || user.role !== "User" || user.accountStatus !== "Active") {
     redirect("/client/login");
   }
 
@@ -56,32 +59,33 @@ export default async function ClientDashboard({
   const view: DashboardView = dashboardViews.includes(requestedView as DashboardView) ? (requestedView as DashboardView) : "dashboard";
   const customer = await queryOr("customer", () => prisma.customer.findFirst({
     where: { email: { equals: user.email, mode: "insensitive" } },
+    select: { id: true, customerName: true, phone: true, address: true, loyaltyStamps: true, rewardAvailable: true, rewardRedeemedAt: true },
   }), null);
 
-  const products = await queryOr("products", () => prisma.product.findMany({
-    orderBy: [{ productGroup: "asc" }, { productName: "asc" }],
-  }), []);
-
-  const [pets, appointments, productReservations, pricing, groomers] = await Promise.all([
+  const [products, pets, appointments, productReservations, pricing, groomers] = await Promise.all([
+    queryOr("products", () => prisma.product.findMany({
+      select: { productId: true, productName: true, category: true, productGroup: true, price: true, stockQuantity: true, isActive: true, description: true },
+      orderBy: [{ productGroup: "asc" }, { productName: "asc" }],
+    }).then((rows) => rows.map((row) => ({ ...row, image: productImageUrl(row.productId) }))), []),
     customer
-      ? queryOr("pets", () => prisma.pet.findMany({ where: { customerId: customer.id }, orderBy: { createdAt: "desc" } }), [])
+      ? queryOr("pets", () => prisma.pet.findMany({ where: { customerId: customer.id }, select: { id: true, petName: true, species: true }, orderBy: { createdAt: "desc" } }), [])
       : [],
     customer
       ? queryOr("grooming appointments", () => prisma.groomingAppointment.findMany({
           where: { customerId: customer.id },
-          include: { pet: true, style: true, groomer: true },
+          include: { pet: { select: { id: true, petName: true } }, style: { select: { styleId: true, styleName: true } }, groomer: { select: { groomerId: true, groomerName: true } } },
           orderBy: [{ appointmentDate: "desc" }, { appointmentTime: "desc" }],
         }), [])
       : [],
     customer
       ? queryOr("product reservations", () => prisma.productReservation.findMany({
           where: { customerId: customer.id },
-          include: { items: { include: { product: true } } },
+          include: { items: { include: { product: { select: { productId: true, productName: true } } } } },
           orderBy: { createdAt: "desc" },
         }), [])
       : [],
     queryOr("grooming prices", () => prisma.styleSizePricing.findMany({ include: { style: true }, orderBy: [{ styleId: "asc" }, { pricingId: "asc" }] }), []),
-    queryOr("groomers", () => prisma.groomer.findMany({ where: { isActive: true }, orderBy: { groomerName: "asc" } }), []),
+    queryOr("groomers", () => prisma.groomer.findMany({ where: { isActive: 1 }, orderBy: { groomerName: "asc" } }), []),
   ]);
   const styles = [...new Map(pricing.map((item) => [item.styleId, item.style])).values()];
 
@@ -89,7 +93,7 @@ export default async function ClientDashboard({
     (item) => ["Pending", "Confirmed"].includes(item.status) && item.appointmentDate >= new Date(new Date().toDateString()),
   );
   const activeProductReservations = productReservations.filter((item) =>
-    ["Pending", "Confirmed", "Ready for Pickup"].includes(item.status),
+    ["Pending", "Approved", "Ready for Pickup"].includes(item.status),
   );
   const next = [...upcoming].sort(
     (a, b) => a.appointmentDate.getTime() - b.appointmentDate.getTime() || a.appointmentTime.getTime() - b.appointmentTime.getTime(),
@@ -109,7 +113,7 @@ export default async function ClientDashboard({
               <article className="metric"><span>Registered pets</span><strong>{pets.length}</strong><small>Pet profiles</small></article>
               <article className="metric"><span>Upcoming grooming</span><strong>{upcoming.length}</strong><small>Active schedule</small></article>
               <article className="metric"><span>Product reservations</span><strong>{activeProductReservations.length}</strong><small>Active pickup items</small></article>
-              <article className="metric"><span>Account status</span><strong>Active</strong><small>Email verified</small></article>
+              <article className="metric"><span>Loyalty stamps</span><strong>{customer?.loyaltyStamps || 0}/10</strong><small>{customer?.rewardAvailable ? "Reward available" : "Progress toward VIP reward"}</small></article>
             </section>
             <section className="dashGrid">
               <article className="dashPanel">
@@ -124,33 +128,34 @@ export default async function ClientDashboard({
 
         <div data-dashboard-panel="pets">
           <PortalSection eyebrow="PET PROFILES" title="My pets" description="The pets registered under your customer account.">
-            <details className="clientActionPanel"><summary>＋ Add a pet profile</summary><form action={createPet} className="clientActionForm"><label>Pet name<input name="petName" required /></label><label>Species<select name="species" defaultValue="Dog"><option>Dog</option><option>Cat</option><option>Other</option></select></label><label>Breed<input name="breed" /></label><button>Add pet</button></form></details>
-            {pets.length ? <div className="clientCardGrid">{pets.map((pet) => <form action={updatePet} className="clientEditCard" key={pet.id}><input type="hidden" name="id" value={pet.id}/><span className="clientCardIcon">🐾</span><label>Pet name<input name="petName" defaultValue={pet.petName} required /></label><label>Species<select name="species" defaultValue={pet.species || "Dog"}><option>Dog</option><option>Cat</option><option>Other</option></select></label><label>Breed<input name="breed" defaultValue={pet.breed || ""} /></label><button>Save pet</button></form>)}</div> : <Empty title="No pets registered" detail="Add your first pet profile above." />}
+            <details className="clientActionPanel"><summary>+ Add a pet profile</summary><form action={createPet} className="clientActionForm"><label>Pet name<input name="petName" required /></label><label>Pet type<select name="species" defaultValue="Dog"><option>Dog</option><option>Cat</option><option>Other</option></select></label><button>Add pet</button></form></details>
+            {pets.length ? <div className="clientCardGrid">{pets.map((pet) => <form action={updatePet} className="clientEditCard" key={pet.id}><input type="hidden" name="id" value={pet.id}/><span className="clientCardIcon">P</span><label>Pet name<input name="petName" defaultValue={pet.petName} required /></label><label>Pet type<select name="species" defaultValue={pet.species || "Dog"}><option>Dog</option><option>Cat</option><option>Other</option></select></label><button>Save pet</button></form>)}</div> : <Empty title="No pets registered" detail="Add your first pet profile above." />}
           </PortalSection>
         </div>
 
         <div data-dashboard-panel="grooming">
           <PortalSection eyebrow="CARE SCHEDULE" title="Grooming" description="Compare hairstyles, size-based prices, and available groomers, then reserve salon or home service.">
             <div className="groomingCatalog">{styles.map((style) => <article key={style.styleId}><h3>{style.styleName}</h3>{pricing.filter((item) => item.styleId === style.styleId).map((item) => <p key={item.pricingId}><span>{item.petSize}</span><b>{money(item.price)}</b></p>)}</article>)}</div>
-            {pets.length && styles.length && groomers.length ? <details className="clientActionPanel" open><summary>Book a grooming appointment</summary><form action={bookGrooming} className="clientActionForm bookingForm"><label>Pet<select name="petId">{pets.map((pet) => <option value={pet.id} key={pet.id}>{pet.petName}</option>)}</select></label><label>Hairstyle / package<select name="styleId">{styles.map((style) => <option value={style.styleId} key={style.styleId}>{style.styleName}</option>)}</select></label><label>Pet size<select name="petSize"><option>Small</option><option>Medium</option><option>Large</option><option>Extra Large</option><option>Giant</option></select></label><label>Groomer<select name="groomerId">{groomers.map((groomer) => <option value={groomer.groomerId} key={groomer.groomerId}>{groomer.groomerName}</option>)}</select></label><label>Service type<select name="bookingType"><option>Salon</option><option>Home Service</option></select></label><label>Date<input name="date" type="date" min={new Date().toISOString().slice(0, 10)} required /></label><label>Time<input name="time" type="time" min="09:00" max="19:00" required /></label><label className="wideField">Home-service address<input name="address" defaultValue={customer?.address || ""} placeholder="Required for home service" /></label><label className="wideField">Special instructions<textarea name="instructions" rows={3} /></label><button>Submit appointment</button></form></details> : <div className="portalHint">Add a pet profile before booking. Grooming reservations require an available package and groomer.</div>}
-            {appointments.length ? <div className="clientList">{appointments.map((item) => <article className="clientListItem" key={item.appointmentId.toString()}><div><h3>{item.pet.petName} · {item.style.styleName}</h3><p>{date(item.appointmentDate)} at {time(item.appointmentTime)} · {item.groomer.groomerName}</p><small>{item.reservationCode}</small></div><span className="statusChip">{item.status}</span></article>)}</div> : <Empty title="No grooming appointments" detail="Your grooming schedule will appear here after a reservation is created." />}
+            {pets.length && styles.length && groomers.length ? <details className="clientActionPanel" open><summary>Book a grooming appointment</summary><GroomingBookingForm address={customer?.address || ""} customerName={customer?.customerName || [user.firstName, user.surname].filter(Boolean).join(" ")} groomers={groomers.map((item) => ({ id: item.groomerId, label: item.groomerName }))} minimumDate={new Date().toISOString().slice(0, 10)} pets={pets.map((item) => ({ id: item.id, label: item.petName }))} phone={customer?.phone || user.phoneNumber || ""} styles={styles.map((item) => ({ id: item.styleId, label: item.styleName }))}/></details> : <div className="portalHint">Add a pet profile before booking. Grooming reservations require an available package and groomer.</div>}
+            {appointments.length ? <div className="clientList">{appointments.map((item) => <article className="clientListItem" key={item.appointmentId.toString()}><div><h3>{item.pet.petName} - {item.style.styleName}</h3><p>{date(item.appointmentDate)} at {time(item.appointmentTime)} - {item.groomer.groomerName}</p><small>{item.reservationCode} - <b>{item.bookingType === "Home Service" ? "HOME SERVICE" : "STORE SERVICE"}</b></small></div><div className="clientRecordActions"><span className="statusChip">{item.status}</span>{["Pending", "Confirmed"].includes(item.status) && <form action={cancelGroomingAppointment}><input name="id" type="hidden" value={item.appointmentId.toString()}/><ConfirmSubmitButton className="clientCancelButton" confirmMessage="Cancel this grooming appointment?" pendingText="Cancelling...">Cancel</ConfirmSubmitButton></form>}</div></article>)}</div> : <Empty title="No grooming appointments" detail="Your grooming schedule will appear here after a reservation is created." />}
           </PortalSection>
         </div>
 
         <div data-dashboard-panel="products">
           <PortalSection eyebrow="PET ESSENTIALS" title="Available products" description="Browse products that are currently available in the shop.">
-            {products.length ? <div className="productBrowseGrid">{products.map((product) => <article className="productBrowseCard" key={product.productId}><img className="productImage" src={productImageSrc(product.image, product.productName, product.category, product.productId)} alt={product.productName} loading="lazy" /><small>{product.productGroup} · {product.category}</small><h3>{product.productName}</h3><p>{product.description || "Available for in-store pickup."}</p><div><strong>{money(product.price)}</strong><span>{product.isActive && product.stockQuantity > 0 ? `${product.stockQuantity} in stock` : "Unavailable"}</span></div>{product.isActive && product.stockQuantity > 0 ? <form action={reserveProduct} className="productReserveForm"><input type="hidden" name="productId" value={product.productId}/><label>Qty<input type="number" name="quantity" min="1" max={product.stockQuantity} defaultValue="1" required /></label><label>Payment<select name="paymentMethod"><option>Cash</option><option>GCash</option><option>Maya</option></select></label><button>Reserve</button></form> : <button className="outOfStockButton" disabled>Currently unavailable</button>}</article>)}</div> : <Empty title="No products available" detail="Inventory will appear here." />}
+            {products.length ? <div className="productBrowseGrid">{products.map((product) => <article className="productBrowseCard" key={product.productId}><img className="productImage" src={productImageSrc(product.image, product.productName, product.category, product.productId)} alt={product.productName} loading="lazy" /><small>{product.productGroup} - {product.category}</small><h3>{product.productName}</h3><p>{product.description || "Available for in-store pickup."}</p><div><strong>{money(product.price)}</strong><span>{product.isActive && product.stockQuantity > 0 ? `${product.stockQuantity} in stock` : "Unavailable"}</span></div>{product.isActive && product.stockQuantity > 0 ? <ProductReserveForm address={customer?.address || ""} phone={customer?.phone || user.phoneNumber || ""} productId={product.productId} productName={product.productName} stock={product.stockQuantity} unitPrice={Number(product.price.toString())}/> : <button className="outOfStockButton" disabled>Currently unavailable</button>}</article>)}</div> : <Empty title="No products available" detail="Inventory will appear here." />}
           </PortalSection>
         </div>
 
         <div data-dashboard-panel="reservations">
           <PortalSection eyebrow="ORDER HISTORY" title="Reservations" description="Track your product pickups and grooming reservation status.">
-            {!appointments.length && !productReservations.length ? <Empty title="No reservations yet" detail="Your product and grooming reservations will appear here." /> : <div className="reservationColumns"><div><h3>Product reservations</h3>{productReservations.length ? <div className="clientList">{productReservations.map((reservation) => <article className="clientListItem" key={reservation.reservationId.toString()}><div><h3>{reservation.items.map((item) => `${item.quantity}× ${item.product.productName}`).join(", ")}</h3><p>{date(reservation.createdAt)} · {money(reservation.totalAmount)}</p><small>{reservation.reservationCode}</small></div><span className="statusChip">{reservation.status}</span></article>)}</div> : <Empty title="No product reservations" detail="Reserved pickup items will appear here." />}</div><div><h3>Grooming reservations</h3>{appointments.length ? <div className="clientList">{appointments.map((item) => <article className="clientListItem" key={item.appointmentId.toString()}><div><h3>{item.pet.petName} · {item.style.styleName}</h3><p>{date(item.appointmentDate)} at {time(item.appointmentTime)}</p><small>{item.reservationCode}</small></div><span className="statusChip">{item.status}</span></article>)}</div> : <Empty title="No grooming reservations" detail="Booked grooming services will appear here." />}</div></div>}
+            {!appointments.length && !productReservations.length ? <Empty title="No reservations yet" detail="Your product and grooming reservations will appear here." /> : <div className="reservationColumns"><div><h3>Product reservations</h3>{productReservations.length ? <div className="clientList">{productReservations.map((reservation) => <article className="clientListItem" key={reservation.reservationId.toString()}><div><h3>{reservation.items.map((item) => `${item.quantity} x ${item.product.productName}`).join(", ")}</h3><p>Pickup: {date(reservation.reservedUntil)} at {time(reservation.reservedUntil)} - {money(reservation.totalAmount)}</p><small>{reservation.reservationCode} - Reserved {date(reservation.createdAt)}</small></div><div className="clientRecordActions"><span className="statusChip">{reservation.status}</span>{["Pending", "Approved"].includes(reservation.status) && <form action={cancelProductReservation}><input name="id" type="hidden" value={reservation.reservationId.toString()}/><ConfirmSubmitButton className="clientCancelButton" confirmMessage="Cancel this product reservation? Reserved stock will be released." pendingText="Cancelling...">Cancel</ConfirmSubmitButton></form>}</div></article>)}</div> : <Empty title="No product reservations" detail="Reserved pickup items will appear here." />}</div><div><h3>Grooming reservations</h3>{appointments.length ? <div className="clientList">{appointments.map((item) => <article className="clientListItem" key={item.appointmentId.toString()}><div><h3>{item.pet.petName} - {item.style.styleName}</h3><p>{date(item.appointmentDate)} at {time(item.appointmentTime)}</p><small>{item.reservationCode} - {item.bookingType === "Home Service" ? "HOME SERVICE" : "STORE SERVICE"}</small></div><span className="statusChip">{item.status}</span></article>)}</div> : <Empty title="No grooming reservations" detail="Booked grooming services will appear here." />}</div></div>}
           </PortalSection>
         </div>
 
         <div data-dashboard-panel="account">
           <PortalSection eyebrow="PERSONAL DETAILS" title="My account" description="Edit your contact information used for reservations and home service.">
+            <section className="loyaltyCard"><div><small>LOYALTY PROGRESS</small><h3>{customer?.loyaltyStamps || 0}/10 stamps</h3><p>{customer?.rewardAvailable ? "VIP / Reward Available" : `${10 - (customer?.loyaltyStamps || 0)} more stamps until your reward.`}</p></div><div aria-label={`${customer?.loyaltyStamps || 0} of 10 loyalty stamps`} className="stampTrack">{Array.from({ length: 10 }, (_, index) => <span className={index < (customer?.loyaltyStamps || 0) ? "earned" : ""} key={index}>{index + 1}</span>)}</div></section>
             <form action={updateProfile} className="profileEditForm"><label>First name<input name="firstName" defaultValue={user.firstName || ""} required /></label><label>Middle initial<input name="middleInitial" defaultValue={user.middleInitial || ""} maxLength={2} /></label><label>Surname<input name="surname" defaultValue={user.surname || ""} required /></label><label>Email address<input value={user.email} readOnly /></label><label>Phone number<input name="phone" defaultValue={user.phoneNumber || customer?.phone || ""} required /></label><label className="wideField">Address<textarea name="address" defaultValue={customer?.address || ""} rows={3} /></label><div className="profileMeta"><span>Account: <b>{user.accountStatus}</b></span><span>Member since: <b>{date(user.createdAt)}</b></span></div><button>Save profile</button></form>
           </PortalSection>
         </div>

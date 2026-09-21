@@ -2,7 +2,8 @@
 session_start();
 require_once __DIR__ . '/db.php';
 
-if (empty($_SESSION['user_id']) || strtolower(trim($_SESSION['role'] ?? '')) !== 'admin') {
+$adminRole = strtolower(trim($_SESSION['role'] ?? ''));
+if (empty($_SESSION['user_id']) || !in_array($adminRole, ['admin', 'superadmin'], true)) {
     header('Location: ../auth/login.php');
     exit;
 }
@@ -22,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id = filter_var($_POST['user_id'] ?? null, FILTER_VALIDATE_INT);
             $status = $_POST['account_status'] ?? '';
             if (!$id || !in_array($status, ['Active', 'Suspended'], true) || $id === (int) $_SESSION['user_id']) throw new RuntimeException('Invalid client update.');
-            $stmt = $pdo->prepare("UPDATE users SET account_status=? WHERE id=? AND LOWER(role) <> 'admin'");
+            $stmt = $pdo->prepare("UPDATE users SET account_status=? WHERE id=? AND LOWER(role) = 'user'");
             $stmt->execute([$status, $id]);
             $notice = 'Client account status updated.';
         } elseif ($action === 'product_update') {
@@ -103,8 +104,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-$stats = $pdo->query("SELECT (SELECT COUNT(*) FROM users WHERE LOWER(role)<>'admin') clients,(SELECT COUNT(*) FROM products WHERE is_active=1) products,(SELECT COUNT(*) FROM products WHERE is_active=1 AND stock_quantity<=reorder_level) low_stock,(SELECT COUNT(*) FROM grooming_appointments WHERE status IN ('Pending','Confirmed')) appointments")->fetch(PDO::FETCH_ASSOC);
-$clients = $pdo->query("SELECT u.id,u.first_name,u.surname,u.email,u.phone_number,u.account_status,u.created_at,c.id customer_id,(SELECT COUNT(*) FROM pets p WHERE p.customer_id=c.id) pet_count FROM users u LEFT JOIN customers c ON c.email=u.email WHERE LOWER(u.role)<>'admin' ORDER BY u.created_at DESC")->fetchAll(PDO::FETCH_ASSOC);
+$stats = $pdo->query("SELECT (SELECT COUNT(*) FROM users WHERE LOWER(role)='user') clients,(SELECT COUNT(*) FROM products WHERE is_active=1) products,(SELECT COUNT(*) FROM products WHERE is_active=1 AND stock_quantity<=reorder_level) low_stock,(SELECT COUNT(*) FROM grooming_appointments WHERE status IN ('Pending','Confirmed')) appointments")->fetch(PDO::FETCH_ASSOC);
+$clients = $pdo->query("SELECT u.id,u.first_name,u.surname,u.email,u.phone_number,u.account_status,u.created_at,c.id customer_id,(SELECT COUNT(*) FROM pets p WHERE p.customer_id=c.id) pet_count FROM users u LEFT JOIN customers c ON c.email=u.email WHERE LOWER(u.role)='user' ORDER BY u.created_at DESC")->fetchAll(PDO::FETCH_ASSOC);
 $products = $pdo->query('SELECT * FROM products ORDER BY is_active DESC, category, product_name')->fetchAll(PDO::FETCH_ASSOC);
 $prices = $pdo->query('SELECT sp.pricing_id,gs.style_id,gs.style_name,sp.pet_size,sp.price FROM style_size_pricing sp INNER JOIN grooming_styles gs ON gs.style_id=sp.style_id ORDER BY gs.style_id,FIELD(sp.pet_size,\'Small\',\'Medium\',\'Large\',\'Extra Large\',\'Giant\')')->fetchAll(PDO::FETCH_ASSOC);
 $addons = $pdo->query('SELECT * FROM grooming_addons ORDER BY addon_name')->fetchAll(PDO::FETCH_ASSOC);
@@ -112,8 +113,8 @@ $appointments = $pdo->query("SELECT a.appointment_id,a.reservation_code,a.appoin
 $productReservations = $pdo->query("SELECT r.reservation_id,r.reservation_code,r.status,r.total_amount,r.created_at,c.customer_name,GROUP_CONCAT(CONCAT(p.product_name,' × ',i.quantity) SEPARATOR ', ') items FROM product_reservations r INNER JOIN customers c ON c.id=r.customer_id INNER JOIN product_reservation_items i ON i.reservation_id=r.reservation_id INNER JOIN products p ON p.product_id=i.product_id GROUP BY r.reservation_id ORDER BY r.created_at DESC LIMIT 30")->fetchAll(PDO::FETCH_ASSOC);
 $adminName = $_SESSION['customer_name'] ?? 'Administrator';
 ?>
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin Center - Dizon's Petshop</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link rel="stylesheet" href="../css/style.css"></head>
-<body class="admin-page"><aside class="admin-sidebar"><div class="admin-brand"><img src="../images/cutoutlogo.png" alt="Dizon's"><div><strong>Dizon's</strong><small>Admin Center</small></div></div><nav><a href="#overview" class="active"><i class="fa-solid fa-grid-2"></i>Overview</a><a href="#clients"><i class="fa-solid fa-users"></i>Clients</a><a href="#inventory"><i class="fa-solid fa-boxes-stacked"></i>Inventory</a><a href="#grooming"><i class="fa-solid fa-scissors"></i>Packages & Prices</a><a href="#operations"><i class="fa-solid fa-calendar-check"></i>Reservations</a></nav><a href="../auth/logout.php" class="admin-logout"><i class="fa-solid fa-right-from-bracket"></i>Logout</a></aside>
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin Center - DIZON'S Pet Grooming</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link rel="stylesheet" href="../css/style.css"></head>
+<body class="admin-page"><aside class="admin-sidebar"><div class="admin-brand"><img src="../images/cutoutlogo.png" alt="DIZON'S Pet Grooming"><div><strong>DIZON'S</strong><small>Admin Center</small></div></div><nav><a href="#overview" class="active"><i class="fa-solid fa-grid-2"></i>Overview</a><a href="#clients"><i class="fa-solid fa-users"></i>Clients</a><a href="#inventory"><i class="fa-solid fa-boxes-stacked"></i>Inventory</a><a href="#grooming"><i class="fa-solid fa-scissors"></i>Packages & Prices</a><a href="#operations"><i class="fa-solid fa-calendar-check"></i>Reservations</a><?php if ($adminRole === 'superadmin'): ?><a href="superadmin.php"><i class="fa-solid fa-shield-halved"></i>Super Admin</a><?php endif; ?></nav><a href="../auth/logout.php" class="admin-logout"><i class="fa-solid fa-right-from-bracket"></i>Logout</a></aside>
 <main class="admin-main"><header class="admin-topbar"><button id="adminMenu"><i class="fa-solid fa-bars"></i></button><div><small>Signed in as</small><strong><?= htmlspecialchars($adminName) ?></strong></div></header>
 <?php if ($message): ?><div class="premium-notice <?= $message['type'] ?> admin-notice"><?= htmlspecialchars($message['text']) ?></div><?php endif; ?>
 <section id="overview" class="admin-section"><div class="admin-heading"><div><span>System overview</span><h1>Good operations start here.</h1><p>Monitor clients, inventory, pricing, and reservations from one workspace.</p></div></div><div class="admin-stat-grid"><article><i class="fa-solid fa-users"></i><span>Client accounts</span><strong><?= (int)$stats['clients'] ?></strong><a href="#clients">Manage clients</a></article><article><i class="fa-solid fa-box-open"></i><span>Active products</span><strong><?= (int)$stats['products'] ?></strong><a href="#inventory">Open inventory</a></article><article class="warning"><i class="fa-solid fa-triangle-exclamation"></i><span>Low stock</span><strong><?= (int)$stats['low_stock'] ?></strong><a href="#inventory">Restock now</a></article><article><i class="fa-solid fa-calendar-days"></i><span>Active appointments</span><strong><?= (int)$stats['appointments'] ?></strong><a href="#operations">View schedule</a></article></div></section>

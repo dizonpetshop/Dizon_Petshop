@@ -3,57 +3,120 @@ session_start();
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/customer_access.php';
 
-if (!isset($_SESSION['user_id']) || !hasCompletedCustomerRegistration($pdo)) {
+if (empty($_SESSION['user_id'])) {
     header('Location: ../auth/login.php');
-    exit();
+    exit;
+}
+
+if (!hasCompletedCustomerRegistration($pdo)) {
+    header('Location: register_customer.php');
+    exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: products.php');
-    exit();
+    exit;
 }
 
-$name = trim($_POST['name'] ?? '');
-$quantity = filter_var($_POST['quantity'] ?? 1, FILTER_VALIDATE_INT, [
-    'options' => ['min_range' => 1, 'max_range' => 99],
-]);
+$csrf = $_POST['csrf_token'] ?? '';
+$productId = filter_var($_POST['product_id'] ?? null, FILTER_VALIDATE_INT);
+$productName = trim((string) ($_POST['name'] ?? ''));
+$quantity = filter_var($_POST['quantity'] ?? null, FILTER_VALIDATE_INT);
 
-if ($name === '' || $quantity === false) {
-    $_SESSION['cart_message'] = 'The product could not be added to your cart.';
-    header('Location: products.php');
-    exit();
-}
-
-// Siguraduhing totoo ang produkto sa database
-try {
-    $stmt = $pdo->prepare("SELECT * FROM products WHERE product_name = ?");
-    $stmt->execute([$name]);
-    $product = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if (!$product) {
-        $_SESSION['cart_message'] = 'Product not found.';
-        header('Location: products.php');
-        exit();
-    }
-} catch (PDOException $e) {
-    $_SESSION['cart_message'] = 'Database error.';
-    header('Location: products.php');
-    exit();
-}
-
-// Initialize cart kung wala pa
-if (!isset($_SESSION['cart'])) {
-    $_SESSION['cart'] = [];
-}
-
-// Gamitin ang mismong pangalan ng produkto bilang key para diretso at madaling basahin
-if (isset($_SESSION['cart'][$name])) {
-    $_SESSION['cart'][$name] += $quantity;
+if (!is_string($csrf) || !hash_equals($_SESSION['product_csrf'] ?? '', $csrf)) {
+    $_SESSION['product_message'] = [
+        'type' => 'error',
+        'text' => 'Your session expired. Please try again.',
+    ];
+} elseif ((!$productId && $productName === '') || !$quantity || $quantity < 1 || $quantity > 20) {
+    $_SESSION['product_message'] = [
+        'type' => 'error',
+        'text' => 'Choose an available product and a quantity between 1 and 20.',
+    ];
 } else {
-    $_SESSION['cart'][$name] = $quantity;
+    try {
+        $pdo->beginTransaction();
+
+        $customerStmt = $pdo->prepare('SELECT id FROM customers WHERE email = ? LIMIT 1');
+        $customerStmt->execute([$_SESSION['customer_email'] ?? '']);
+        $customerId = $customerStmt->fetchColumn();
+
+        if ($productId) {
+            $productStmt = $pdo->prepare(
+                'SELECT product_id, product_name, price, stock_quantity
+                 FROM products
+                 WHERE product_id = ? AND is_active = 1
+                 FOR UPDATE'
+            );
+            $productStmt->execute([$productId]);
+        } else {
+            // Keep older forms that submit the product name working during migration.
+            $productStmt = $pdo->prepare(
+                'SELECT product_id, product_name, price, stock_quantity
+                 FROM products
+                 WHERE product_name = ? AND is_active = 1
+                 LIMIT 1
+                 FOR UPDATE'
+            );
+            $productStmt->execute([$productName]);
+        }
+
+        $product = $productStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$customerId || !$product) {
+            throw new RuntimeException('The selected product is no longer available.');
+        }
+        if ((int) $product['stock_quantity'] < $quantity) {
+            throw new RuntimeException(
+                'Only ' . (int) $product['stock_quantity'] . ' item(s) are currently available.'
+            );
+        }
+
+        $reservationCode = 'PR-' . date('Ymd') . '-' . strtoupper(bin2hex(random_bytes(3)));
+        $totalAmount = (float) $product['price'] * $quantity;
+
+        $reservationStmt = $pdo->prepare(
+            'INSERT INTO product_reservations
+                (reservation_code, customer_id, total_amount, reserved_until)
+             VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))'
+        );
+        $reservationStmt->execute([$reservationCode, $customerId, $totalAmount]);
+        $reservationId = (int) $pdo->lastInsertId();
+
+        $itemStmt = $pdo->prepare(
+            'INSERT INTO product_reservation_items
+                (reservation_id, product_id, quantity, unit_price)
+             VALUES (?, ?, ?, ?)'
+        );
+        $itemStmt->execute([
+            $reservationId,
+            (int) $product['product_id'],
+            $quantity,
+            $product['price'],
+        ]);
+
+        $stockStmt = $pdo->prepare(
+            'UPDATE products
+             SET stock_quantity = stock_quantity - ?
+             WHERE product_id = ?'
+        );
+        $stockStmt->execute([$quantity, (int) $product['product_id']]);
+
+        $pdo->commit();
+        $_SESSION['product_message'] = [
+            'type' => 'success',
+            'text' => $product['product_name'] . ' was reserved. Reference: '
+                . $reservationCode . '. Pickup is held for 24 hours.',
+        ];
+    } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        $_SESSION['product_message'] = [
+            'type' => 'error',
+            'text' => $exception->getMessage(),
+        ];
+    }
 }
 
-$_SESSION['cart_message'] = htmlspecialchars($name) . ' added to your cart.';
 header('Location: products.php');
-exit();
-can u switch this to reservation
+exit;

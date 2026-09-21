@@ -20,7 +20,7 @@ export default function ContactFooter() {
         <div className="footerIntro">
           <div className="footerIdentity">
             <img src="/assets/dizons-logo.jpg" alt="Dizon's Pet Grooming logo" />
-            <div><span className="footerEyebrow">Visit · Call · Connect</span><h2>Dizon&apos;s Petshop &amp; Grooming</h2></div>
+            <div><span className="footerEyebrow">Visit · Call · Connect</span><h2>DIZON&apos;S Pet Grooming</h2></div>
           </div>
           <p>Thoughtful grooming and trusted essentials for every beloved pet in Navotas.</p>
         </div>
@@ -33,7 +33,7 @@ export default function ContactFooter() {
 
         <div className="footerSocials">
           <div><b>Stay connected</b><span>Follow our latest grooms and happy pet moments.</span></div>
-          <nav aria-label="Dizon's Petshop social media">
+          <nav aria-label="DIZON'S Pet Grooming social media">
             <a href="https://www.facebook.com/profile.php?id=61559718971989" target="_blank" rel="noreferrer" aria-label="Facebook"><FooterIcon name="facebook" /><span>Facebook</span></a>
             <a href="https://www.instagram.com/dizonspetgrooming" target="_blank" rel="noreferrer" aria-label="Instagram"><FooterIcon name="instagram" /><span>Instagram</span></a>
             <a href="https://www.tiktok.com/@jcdizon02" target="_blank" rel="noreferrer" aria-label="TikTok"><FooterIcon name="tiktok" /><span>TikTok</span></a>
@@ -41,7 +41,7 @@ export default function ContactFooter() {
           </nav>
         </div>
 
-        <div className="footerBottom"><span>© 2026 Dizon&apos;s Petshop &amp; Grooming. All rights reserved.</span></div>
+        <div className="footerBottom"><span>© 2026 DIZON&apos;S Pet Grooming. All rights reserved.</span></div>
       </div>
     </footer>
   );

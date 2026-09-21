@@ -11,7 +11,7 @@ export default async function ClientLogin({ searchParams }: { searchParams: Prom
         </div>
         <div className="legacyLoginPane">
           <div className="legacyLoginCard">
-            <div className="legacyAuthHeading"><small>THE</small><h1>DIZON&apos;S<br />PETSHOP</h1><h2>LOGIN</h2><p>Welcome! Please enter your details.</p></div>
+            <div className="legacyAuthHeading"><h1>DIZON&apos;S<br />PET GROOMING</h1><h2>CUSTOMER LOGIN</h2><p>Welcome! Please enter your details.</p></div>
             {error && <div className="authError">Incorrect client email or password.</div>}
             {registered && <div className="authSuccess">Account created successfully. You can now log in.</div>}
             {reset && <div className="authSuccess">Password updated successfully. You can now log in.</div>}

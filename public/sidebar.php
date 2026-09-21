@@ -16,8 +16,11 @@ $customerNavigation = [
         </a>
     <?php endforeach; ?>
 
-    <?php if (isset($_SESSION['role']) && strtolower(trim($_SESSION['role'])) === 'admin'): ?>
+    <?php if (isset($_SESSION['role']) && in_array(strtolower(trim($_SESSION['role'])), ['admin', 'superadmin'], true)): ?>
         <hr class="text-white-50 mx-3 my-2">
         <a href="admin.php" class="nav-link"><i class="fa-solid fa-gauge-high"></i> Admin Center</a>
+    <?php endif; ?>
+    <?php if (isset($_SESSION['role']) && strtolower(trim($_SESSION['role'])) === 'superadmin'): ?>
+        <a href="superadmin.php" class="nav-link"><i class="fa-solid fa-shield-halved"></i> Super Admin Center</a>
     <?php endif; ?>
 </div>

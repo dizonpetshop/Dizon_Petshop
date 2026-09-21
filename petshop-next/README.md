@@ -1,4 +1,4 @@
-# Dizon's Petshop — Next.js
+# DIZON'S Pet Grooming - Next.js
 
 This is the new Next.js App Router and TypeScript foundation for the petshop system. It includes a premium public landing page, separate client and administrator portals, dashboard previews, and a built-in `/how-to-run` guide.
 
