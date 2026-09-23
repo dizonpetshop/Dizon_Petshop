@@ -36,6 +36,24 @@ export async function writeAudit(
   });
 }
 
+export async function writeAuditSafely(
+  db: Database,
+  actor: Actor,
+  action: string,
+  module: string,
+  description: string,
+  recordId?: string | number | bigint | null,
+  ipAddress?: string | null,
+) {
+  try {
+    await writeAudit(db, actor, action, module, description, recordId, ipAddress);
+  } catch (error) {
+    // Authentication must remain available if the optional audit store is
+    // temporarily unavailable or has not been migrated yet.
+    console.error("Unable to persist audit log entry.", error);
+  }
+}
+
 export async function notifyAdministrators(
   db: Database,
   event: { eventKey: string; title: string; message: string; type: string; relatedType?: string; relatedId?: string | number | bigint; link: string },
