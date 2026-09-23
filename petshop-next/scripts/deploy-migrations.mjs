@@ -30,14 +30,38 @@ const prismaExecutable = path.join(
   ".bin",
   process.platform === "win32" ? "prisma.cmd" : "prisma",
 );
-const result = spawnSync(prismaExecutable, ["migrate", "deploy"], {
-  env: {
-    ...process.env,
-    DATABASE_URL: migrationUrl.toString(),
-    DIRECT_URL: migrationUrl.toString(),
-  },
-  stdio: "inherit",
-});
+const migrationEnvironment = {
+  ...process.env,
+  DATABASE_URL: migrationUrl.toString(),
+  DIRECT_URL: migrationUrl.toString(),
+};
 
-if (result.error) throw result.error;
+function runPrisma(arguments_, captureOutput = false) {
+  const result = spawnSync(prismaExecutable, arguments_, {
+    encoding: captureOutput ? "utf8" : undefined,
+    env: migrationEnvironment,
+    stdio: captureOutput ? "pipe" : "inherit",
+  });
+  if (result.error) throw result.error;
+  if (captureOutput) {
+    if (result.stdout) process.stdout.write(result.stdout);
+    if (result.stderr) process.stderr.write(result.stderr);
+  }
+  return result;
+}
+
+let result = runPrisma(["migrate", "deploy"], true);
+
+if (result.status !== 0 && `${result.stdout || ""}\n${result.stderr || ""}`.includes("P3005")) {
+  console.log("Baselining the existing production schema before applying pending migrations.");
+  const baseline = runPrisma([
+    "migrate",
+    "resolve",
+    "--applied",
+    "20260916000000_product_image_text",
+  ]);
+  if (baseline.status !== 0) process.exit(baseline.status ?? 1);
+  result = runPrisma(["migrate", "deploy"]);
+}
+
 process.exit(result.status ?? 1);
