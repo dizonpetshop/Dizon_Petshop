@@ -1,20 +1,20 @@
 ALTER TABLE "customers"
-  ADD COLUMN "loyalty_stamps" INTEGER NOT NULL DEFAULT 0,
-  ADD COLUMN "reward_available" BOOLEAN NOT NULL DEFAULT false,
-  ADD COLUMN "reward_redeemed_at" TIMESTAMP(3);
+  ADD COLUMN IF NOT EXISTS "loyalty_stamps" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS "reward_available" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "reward_redeemed_at" TIMESTAMP(3);
 
 ALTER TABLE "groomers"
-  ADD COLUMN "contact_number" VARCHAR(20),
-  ADD COLUMN "profile_image" TEXT;
+  ADD COLUMN IF NOT EXISTS "contact_number" VARCHAR(20),
+  ADD COLUMN IF NOT EXISTS "profile_image" TEXT;
 
 ALTER TABLE "grooming_appointments"
-  ADD COLUMN "contact_name" VARCHAR(150),
-  ADD COLUMN "contact_number" VARCHAR(20);
+  ADD COLUMN IF NOT EXISTS "contact_name" VARCHAR(150),
+  ADD COLUMN IF NOT EXISTS "contact_number" VARCHAR(20);
 
 ALTER TABLE "product_reservations"
-  ADD COLUMN "customer_name" VARCHAR(150),
-  ADD COLUMN "contact_number" VARCHAR(20),
-  ADD COLUMN "delivery_address" TEXT;
+  ADD COLUMN IF NOT EXISTS "customer_name" VARCHAR(150),
+  ADD COLUMN IF NOT EXISTS "contact_number" VARCHAR(20),
+  ADD COLUMN IF NOT EXISTS "delivery_address" TEXT;
 
 UPDATE "grooming_appointments" AS appointment
 SET "contact_name" = customer."customer_name",
@@ -32,7 +32,7 @@ WHERE customer."id" = reservation."customer_id";
 UPDATE "product_reservations" SET "status" = 'Approved' WHERE "status" = 'Confirmed';
 UPDATE "product_reservations" SET "status" = 'Completed' WHERE "status" = 'Claimed';
 
-CREATE TABLE "groomer_availability" (
+CREATE TABLE IF NOT EXISTS "groomer_availability" (
   "availability_id" SERIAL PRIMARY KEY,
   "groomer_id" INTEGER NOT NULL REFERENCES "groomers"("groomer_id") ON DELETE CASCADE,
   "day_of_week" INTEGER NOT NULL CHECK ("day_of_week" BETWEEN 0 AND 6),
@@ -43,7 +43,7 @@ CREATE TABLE "groomer_availability" (
   CONSTRAINT "groomer_availability_groomer_id_day_of_week_key" UNIQUE ("groomer_id", "day_of_week")
 );
 
-CREATE TABLE "notifications" (
+CREATE TABLE IF NOT EXISTS "notifications" (
   "notification_id" BIGSERIAL PRIMARY KEY,
   "recipient_id" INTEGER NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
   "event_key" VARCHAR(120) NOT NULL,
@@ -59,7 +59,7 @@ CREATE TABLE "notifications" (
   CONSTRAINT "notifications_recipient_id_event_key_key" UNIQUE ("recipient_id", "event_key")
 );
 
-CREATE TABLE "audit_logs" (
+CREATE TABLE IF NOT EXISTS "audit_logs" (
   "audit_log_id" BIGSERIAL PRIMARY KEY,
   "user_id" INTEGER REFERENCES "users"("id") ON DELETE SET NULL,
   "user_name" VARCHAR(150) NOT NULL,
@@ -72,7 +72,7 @@ CREATE TABLE "audit_logs" (
   "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE "loyalty_transactions" (
+CREATE TABLE IF NOT EXISTS "loyalty_transactions" (
   "transaction_id" BIGSERIAL PRIMARY KEY,
   "customer_id" INTEGER NOT NULL REFERENCES "customers"("id") ON DELETE CASCADE,
   "changed_by_id" INTEGER NOT NULL REFERENCES "users"("id"),
@@ -82,7 +82,7 @@ CREATE TABLE "loyalty_transactions" (
   "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE "system_settings" (
+CREATE TABLE IF NOT EXISTS "system_settings" (
   "key" VARCHAR(80) PRIMARY KEY,
   "value" TEXT NOT NULL,
   "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -97,11 +97,11 @@ INSERT INTO "groomers" ("groomer_name", "is_active") VALUES
   ('Joshua', 1)
 ON CONFLICT ("groomer_name") DO NOTHING;
 
-CREATE INDEX "grooming_appointments_appointment_date_status_idx" ON "grooming_appointments"("appointment_date", "status");
-CREATE INDEX "grooming_appointments_groomer_id_appointment_date_appointment_time_idx" ON "grooming_appointments"("groomer_id", "appointment_date", "appointment_time");
-CREATE INDEX "product_reservations_created_at_status_idx" ON "product_reservations"("created_at", "status");
-CREATE INDEX "groomer_availability_day_of_week_is_active_idx" ON "groomer_availability"("day_of_week", "is_active");
-CREATE INDEX "notifications_recipient_id_is_read_created_at_idx" ON "notifications"("recipient_id", "is_read", "created_at");
-CREATE INDEX "audit_logs_created_at_idx" ON "audit_logs"("created_at");
-CREATE INDEX "audit_logs_user_id_action_module_idx" ON "audit_logs"("user_id", "action", "module");
-CREATE INDEX "loyalty_transactions_customer_id_created_at_idx" ON "loyalty_transactions"("customer_id", "created_at");
+CREATE INDEX IF NOT EXISTS "grooming_appointments_appointment_date_status_idx" ON "grooming_appointments"("appointment_date", "status");
+CREATE INDEX IF NOT EXISTS "grooming_appointments_groomer_id_appointment_date_appointment_time_idx" ON "grooming_appointments"("groomer_id", "appointment_date", "appointment_time");
+CREATE INDEX IF NOT EXISTS "product_reservations_created_at_status_idx" ON "product_reservations"("created_at", "status");
+CREATE INDEX IF NOT EXISTS "groomer_availability_day_of_week_is_active_idx" ON "groomer_availability"("day_of_week", "is_active");
+CREATE INDEX IF NOT EXISTS "notifications_recipient_id_is_read_created_at_idx" ON "notifications"("recipient_id", "is_read", "created_at");
+CREATE INDEX IF NOT EXISTS "audit_logs_created_at_idx" ON "audit_logs"("created_at");
+CREATE INDEX IF NOT EXISTS "audit_logs_user_id_action_module_idx" ON "audit_logs"("user_id", "action", "module");
+CREATE INDEX IF NOT EXISTS "loyalty_transactions_customer_id_created_at_idx" ON "loyalty_transactions"("customer_id", "created_at");

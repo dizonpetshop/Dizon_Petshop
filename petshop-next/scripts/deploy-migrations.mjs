@@ -61,6 +61,23 @@ if (result.status !== 0 && `${result.stdout || ""}\n${result.stderr || ""}`.incl
     "20260916000000_product_image_text",
   ]);
   if (baseline.status !== 0) process.exit(baseline.status ?? 1);
+  result = runPrisma(["migrate", "deploy"], true);
+}
+
+const failedMigrationOutput = `${result.stdout || ""}\n${result.stderr || ""}`;
+if (
+  result.status !== 0
+  && (failedMigrationOutput.includes("P3009") || failedMigrationOutput.includes("P3018"))
+  && failedMigrationOutput.includes("20260918000000_operations_upgrade")
+) {
+  console.log("Recovering the interrupted operations migration and retrying safely.");
+  const recovery = runPrisma([
+    "migrate",
+    "resolve",
+    "--rolled-back",
+    "20260918000000_operations_upgrade",
+  ]);
+  if (recovery.status !== 0) process.exit(recovery.status ?? 1);
   result = runPrisma(["migrate", "deploy"]);
 }
 
