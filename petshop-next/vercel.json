@@ -1,5 +1,5 @@
 {
-  "buildCommand": "DATABASE_URL=\"$DIRECT_URL\" npx prisma migrate deploy && npm run build",
+  "buildCommand": "node scripts/deploy-migrations.mjs && npm run build",
   "crons": [
     {
       "path": "/api/cron/grooming-reminders",
