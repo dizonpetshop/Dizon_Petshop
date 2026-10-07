@@ -14,7 +14,7 @@ export default async function AdminLogin({ searchParams }: { searchParams: Promi
             <div className="legacyAuthHeading"><h1>DIZON&apos;S<br />PET GROOMING</h1><h2>ADMIN LOGIN</h2><p>Secure access for authorized staff.</p></div>
             <div className="legacyAdminNotice">🔒 Client accounts cannot sign in through this portal.</div>
             {loggedOut && <div className="authSuccess">You have been logged out securely.</div>}
-            {error && <div className="authError">Invalid administrator credentials or access is suspended.</div>}
+            {error && <div className="authError" role="alert">{error === "database-config" ? (process.env.NODE_ENV === "development" ? "Database setup error: check the MySQL DATABASE_URL in petshop-next/.env.local, start XAMPP MySQL, then restart the server." : "Admin sign-in is temporarily unavailable. Please contact the system administrator.") : error === "unavailable" ? "Admin sign-in is temporarily unavailable. Please contact the system administrator." : "Invalid administrator credentials or access is suspended."}</div>}
             <form action="/api/auth/admin-login" method="post" className="legacyAuthForm">
               <label>ADMIN EMAIL<input type="email" name="email" autoComplete="username" required /></label>
               <label>PASSWORD<PasswordInput /></label>

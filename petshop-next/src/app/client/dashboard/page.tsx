@@ -58,7 +58,7 @@ export default async function ClientDashboard({
   const requestedView = params.view;
   const view: DashboardView = dashboardViews.includes(requestedView as DashboardView) ? (requestedView as DashboardView) : "dashboard";
   const customer = await queryOr("customer", () => prisma.customer.findFirst({
-    where: { email: { equals: user.email, mode: "insensitive" } },
+    where: { email: user.email },
     select: { id: true, customerName: true, phone: true, address: true, loyaltyStamps: true, rewardAvailable: true, rewardRedeemedAt: true },
   }), null);
 

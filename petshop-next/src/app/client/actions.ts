@@ -30,7 +30,7 @@ async function requireClient() {
 }
 
 async function ensureCustomer(user: Awaited<ReturnType<typeof requireClient>>) {
-  const existing = await prisma.customer.findFirst({ where: { email: { equals: user.email, mode: "insensitive" } } });
+  const existing = await prisma.customer.findFirst({ where: { email: user.email } });
   if (existing) return existing;
   return prisma.customer.create({ data: { customerName: [user.firstName, user.surname].filter(Boolean).join(" ") || "Client", email: user.email, phone: user.phoneNumber || "Not provided" } });
 }

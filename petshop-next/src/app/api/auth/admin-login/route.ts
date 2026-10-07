@@ -1,6 +1,7 @@
 import { compare } from "bcryptjs";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { databaseConfigurationError, logDatabaseFailure } from "@/lib/database";
 import { createSessionToken, sessionCookieName } from "@/lib/session";
 import { requestIp, writeAuditSafely } from "@/lib/operations";
 
@@ -8,12 +9,25 @@ export async function POST(request: Request) {
   const form = await request.formData();
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   const password = String(form.get("password") ?? "");
-  const user = await prisma.user.findFirst({
-    where: { email: { equals: email, mode: "insensitive" } },
-  });
+  const configError = databaseConfigurationError();
+  if (configError) {
+    console.error(`Admin login unavailable: ${configError}`);
+    return NextResponse.redirect(new URL("/admin/login?error=database-config", request.url), 303);
+  }
+
+  let user;
+  try {
+    user = await prisma.user.findFirst({
+      where: { email },
+    });
+  } catch (error) {
+    logDatabaseFailure("Admin login", error);
+    return NextResponse.redirect(new URL("/admin/login?error=unavailable", request.url), 303);
+  }
   const hash = user?.password?.startsWith("$2y$") ? "$2b$" + user.password.slice(4) : user?.password;
-  const valid = user && user.role.toLowerCase() === "admin" && user.accountStatus === "Active" && hash && await compare(password, hash);
-  if (!valid) return NextResponse.redirect(new URL("/admin/login?error=invalid", request.url), 303);
+  if (!user || user.role.toLowerCase() !== "admin" || user.accountStatus !== "Active" || !hash || !await compare(password, hash)) {
+    return NextResponse.redirect(new URL("/admin/login?error=invalid", request.url), 303);
+  }
 
   const name = [user.firstName, user.surname].filter(Boolean).join(" ") || "Administrator";
   const token = await createSessionToken({ userId: user.id, role: "Admin", name });

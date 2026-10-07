@@ -236,3 +236,34 @@ html[data-theme="dark"] .loyaltyCard{background:#080f1d}html[data-theme="dark"] 
 html[data-theme="dark"] .reportHeadingActions>span{background:#1a2638;color:#b9c8dc}html[data-theme="dark"] .reportDownloadError{background:#351b24;border-color:#65303c;color:#ffabb6}
 @media(max-width:700px){.modernSectionHeading:has(.reportHeadingActions){align-items:stretch;flex-direction:column}.reportHeadingActions{align-items:stretch;justify-content:space-between;width:100%}.reportDownloadWrap{align-items:stretch}.reportDownloadButton{min-width:132px}.reportDownloadError{left:0;max-width:none;right:0}.reportFilters{margin-top:5px}}
 @media(max-width:430px){.reportHeadingActions{align-items:stretch;flex-direction:column}.reportHeadingActions>span{text-align:center}.reportDownloadButton{width:100%}}
+
+/* Super Admin account management in the shared operations workspace */
+.adminToast.error{background:#fff0f1;border:1px solid #efc5ca;color:#a83b49}
+.accountIntro{color:#68758a;font-size:12px;line-height:1.6;margin:-8px 0 20px}
+.accountMetricGrid{display:grid;gap:12px;grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:18px}
+.accountMetricGrid article{background:#fff;border:1px solid #e4e9f0;border-radius:13px;padding:17px 19px}
+.accountMetricGrid span{color:#758196;display:block;font-size:10px;font-weight:700}
+.accountMetricGrid strong{color:#172033;display:block;font-size:24px;margin-top:5px}
+.accountCreateForm{grid-template-columns:repeat(3,minmax(0,1fr))}
+.accountCreateForm label>small{color:#929cac;display:inline;font-weight:500}
+.accountFormHint{align-self:end;color:#738095;font-size:10px;grid-column:1/-1;margin:0}
+.accountFilters select{flex:none;min-width:130px}
+.accountTable{min-width:900px}
+.accountTable td:nth-child(2){overflow-wrap:anywhere}
+.accountAccessForm{align-items:center;display:flex;flex-wrap:wrap;gap:6px}
+.accountAccessForm select{background:#fbfcfe;border:1px solid #d8dfe9;border-radius:8px;color:#40506a;font-size:10px;height:35px;padding:0 8px}
+.accountAccessForm button{background:#285fdb;border:0;border-radius:8px;color:#fff;cursor:pointer;font-size:10px;font-weight:800;height:35px;padding:0 12px}
+.accountAccessForm button:disabled{cursor:wait;opacity:.65}
+.accountProtected{color:#617086;font-size:10px;font-weight:700}
+html[data-theme="dark"] .accountMetricGrid article{background:#151f2e;border-color:#2b394c}
+html[data-theme="dark"] .accountMetricGrid strong{color:#e7edf7}
+html[data-theme="dark"] .accountAccessForm select{background:#0f1826;border-color:#34445a;color:#e5edf8}
+html[data-theme="dark"] .adminToast.error{background:#351b24;border-color:#65303c;color:#ffabb6}
+@media(max-width:900px){.accountMetricGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.accountCreateForm{grid-template-columns:repeat(2,minmax(0,1fr))}.accountFilters{flex-wrap:wrap}.accountFilters label{flex-basis:100%}}
+@media(max-width:620px){.accountCreateForm{grid-template-columns:1fr}.accountFilters{display:grid;grid-template-columns:1fr 1fr}.accountFilters label{grid-column:1/-1}.accountFilters button{grid-column:1/-1}.accountFilters select{min-width:0}}
+
+/* Dedicated Super Admin control center */
+.superAdminWorkspace{background:#f5f7fb;color:#172033;font-family:Inter,Arial,sans-serif;min-height:100vh}.superAdminTopbar{align-items:center;background:#101a2f;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;min-height:76px;padding:12px max(24px,calc((100vw - 1420px)/2))}.superAdminTopbar .brand b{color:#fff}.superAdminTopbar .brand small{color:#8494b2}.superAdminTopbar>div{align-items:center;display:flex;gap:9px}.superAdminTopbar form{margin:0}.superAdminTopbar button,.superAdminOperationsLink{align-items:center;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#dce7fa;cursor:pointer;display:flex;font-size:10px;font-weight:800;gap:7px;min-height:39px;padding:0 13px;text-decoration:none}.superAdminTopbar button:hover,.superAdminOperationsLink:hover{background:rgba(255,255,255,.13);color:#fff}.superAdminContent{margin:0 auto;max-width:1420px;padding:25px 24px 55px}.superAdminHero{align-items:center;background:linear-gradient(120deg,#101f3d,#285fdb);border-radius:18px;box-shadow:0 18px 40px rgba(28,67,139,.17);color:#fff;display:flex;justify-content:space-between;margin-bottom:18px;overflow:hidden;padding:30px;position:relative}.superAdminHero:after{background:rgba(255,255,255,.06);border-radius:50%;content:"";height:260px;position:absolute;right:18%;top:-175px;width:260px}.superAdminHero>div{position:relative;z-index:1}.superAdminHero>div>small{color:#8fbbff;font-size:9px;font-weight:850;letter-spacing:.16em}.superAdminHero h1{font-size:29px;letter-spacing:-.035em;margin:7px 0}.superAdminHero p{color:#c7d7f2;font-size:12px;margin:0}.superAdminHero>span{align-items:center;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.12);border-radius:13px;display:grid;gap:2px;grid-template-columns:auto 1fr;padding:13px 15px;position:relative;z-index:1}.superAdminHero>span svg{grid-row:1/3;margin-right:8px}.superAdminHero>span b{font-size:11px}.superAdminHero>span small{color:#adc3e8;font-size:9px}.superAdminMetricGrid{display:grid;gap:13px;grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:23px}.superAdminMetricGrid article{align-items:center;background:#fff;border:1px solid #e3e8ef;border-radius:14px;display:flex;gap:13px;padding:18px}.superAdminMetricGrid article>span{align-items:center;background:#eaf1ff;border-radius:11px;color:#285fca;display:flex;height:44px;justify-content:center;width:44px}.superAdminMetricGrid article.warning>span{background:#fff3dc;color:#a36a08}.superAdminMetricGrid small{color:#758196;font-size:9px;font-weight:750}.superAdminMetricGrid strong{display:block;font-size:23px;margin:2px 0}.superAdminMetricGrid p{color:#929cac;font-size:8px;margin:0}.superAdminAudit{margin-top:22px}.superAdminAudit .modernAdminTable{min-width:800px}
+html[data-theme="dark"] .superAdminWorkspace{background:#0d1522;color:#e7edf7}html[data-theme="dark"] .superAdminMetricGrid article{background:#151f2e;border-color:#2b394c}html[data-theme="dark"] .superAdminHero{box-shadow:none}
+@media(max-width:800px){.superAdminTopbar{padding:12px 18px}.superAdminTopbar .brand>span:last-child{display:none}.superAdminMetricGrid{grid-template-columns:1fr}.superAdminHero{align-items:flex-start;gap:22px;flex-direction:column}.superAdminHero>span{width:100%}}
+@media(max-width:520px){.superAdminContent{padding:16px 12px 38px}.superAdminHero{padding:22px 19px}.superAdminHero h1{font-size:24px}.superAdminOperationsLink{font-size:0;padding:0;width:39px}.superAdminTopbar button{font-size:0;padding:0;width:39px}.superAdminTopbar button svg,.superAdminOperationsLink svg{margin:auto}}

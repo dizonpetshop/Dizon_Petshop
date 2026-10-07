@@ -7,12 +7,12 @@ import AdminIcon from "@/components/AdminIcon";
 import AdminSidebar from "@/components/AdminSidebar";
 import ThemeToggle from "@/components/ThemeToggle";
 
-type AdminShellProps = { activeView: string; adminName: string; adminRole: string; pageTitle: string; pageDescription: string; notificationCount: number | null; children: React.ReactNode };
+type AdminShellProps = { activeView: string; adminName: string; adminRole: string; isSuperAdmin: boolean; pageTitle: string; pageDescription: string; notificationCount: number | null; children: React.ReactNode };
 type NotificationPreview = { id: string; title: string; message: string; type: string; link: string; createdAt: string };
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "AD";
 const notificationTime = (value: string) => new Intl.DateTimeFormat("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Manila" }).format(new Date(value));
 
-export default function AdminShell({ activeView, adminName, adminRole, pageTitle, pageDescription, notificationCount, children }: AdminShellProps) {
+export default function AdminShell({ activeView, adminName, adminRole, isSuperAdmin, pageTitle, pageDescription, notificationCount, children }: AdminShellProps) {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -86,7 +86,7 @@ export default function AdminShell({ activeView, adminName, adminRole, pageTitle
   const isNavigating = pendingView !== null && pendingView !== activeView;
 
   return <main className={`adminWorkspace ${collapsed ? "sidebarCollapsed" : ""}`}>
-    <AdminSidebar activeView={displayedView} adminName={adminName} adminRole={adminRole} collapsed={collapsed} mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} onLogout={() => setLogoutOpen(true)} onNavigate={(view) => setPendingView(view === activeView ? null : view)} />
+    <AdminSidebar activeView={displayedView} adminName={adminName} adminRole={adminRole} isSuperAdmin={isSuperAdmin} collapsed={collapsed} mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} onLogout={() => setLogoutOpen(true)} onNavigate={(view) => setPendingView(view === activeView ? null : view)} />
     <section className="adminMain">
       <header className={`adminTopbar ${isNavigating ? "isNavigating" : ""}`}>
         <div className="adminTopbarTitle"><button aria-label="Open navigation" className="adminMenuButton mobileOnly" onClick={() => setMobileOpen(true)} type="button"><AdminIcon name="menu" /></button><button aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} className="adminMenuButton desktopOnly" onClick={() => setCollapsed((value) => !value)} type="button"><AdminIcon name="menu" /></button><div><h1>{pageTitle}</h1><p>{pageDescription}</p></div></div>
@@ -107,6 +107,6 @@ export default function AdminShell({ activeView, adminName, adminRole, pageTitle
       </header>
       <div aria-busy={isNavigating} className={`adminPageContent ${isNavigating ? "isNavigating" : ""}`}>{children}</div>
     </section>
-    <dialog className="adminConfirmDialog" onCancel={() => setLogoutOpen(false)} ref={dialogRef}><div className="adminDialogIcon"><AdminIcon name="logout" size={23}/></div><h2>Log out of Admin?</h2><p>Are you sure you want to log out? You will need to sign in again to access protected admin pages.</p><div><button className="adminSecondaryButton" onClick={() => setLogoutOpen(false)} type="button">Cancel</button><form action="/api/auth/logout" method="post"><input name="destination" type="hidden" value="admin"/><button className="adminDangerButton" type="submit"><AdminIcon name="logout" size={16}/>Logout</button></form></div></dialog>
+    <dialog className="adminConfirmDialog" onCancel={() => setLogoutOpen(false)} ref={dialogRef}><div className="adminDialogIcon"><AdminIcon name="logout" size={23}/></div><h2>Log out?</h2><p>Are you sure you want to log out? You will need to sign in again to access protected admin pages.</p><div><button className="adminSecondaryButton" onClick={() => setLogoutOpen(false)} type="button">Cancel</button><form action="/api/auth/logout" method="post"><input name="destination" type="hidden" value={isSuperAdmin ? "superadmin" : "admin"}/><button className="adminDangerButton" type="submit"><AdminIcon name="logout" size={16}/>Logout</button></form></div></dialog>
   </main>;
 }

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import AdminIcon from "@/components/AdminIcon";
 import AdminProductCard from "@/components/AdminProductCard";
+import AdminAccounts from "@/components/AdminAccounts";
 import AdminShell from "@/components/AdminShell";
 import AdminSubmitButton from "@/components/AdminSubmitButton";
 import ReportPdfButton from "@/components/ReportPdfButton";
@@ -20,6 +21,24 @@ const views = ["dashboard", "products", "categories", "inventory", "orders", "re
 type AdminView = (typeof views)[number];
 type BusinessMetrics = { totalClients: number; activeClients: number; pendingOrderCount: number; pendingAppointmentCount: number; openOrderCount: number; activeAppointmentCount: number; claimedSales: number; totalOrderCount: number; totalAppointmentCount: number; vipCustomerCount: number; availableGroomerCount: number; homeServiceCount: number };
 
+async function loadBusinessMetrics(): Promise<BusinessMetrics[]> {
+  const [totalClients, activeClients, pendingOrderCount, pendingAppointmentCount, openOrderCount, activeAppointmentCount, completedSales, totalOrderCount, totalAppointmentCount, vipCustomerCount, availableGroomerCount, homeServiceCount] = await Promise.all([
+    prisma.user.count({ where: { role: "User" } }),
+    prisma.user.count({ where: { role: "User", accountStatus: "Active" } }),
+    prisma.productReservation.count({ where: { status: "Pending" } }),
+    prisma.groomingAppointment.count({ where: { status: "Pending" } }),
+    prisma.productReservation.count({ where: { status: { in: ["Pending", "Approved", "Ready for Pickup"] } } }),
+    prisma.groomingAppointment.count({ where: { status: { in: ["Pending", "Confirmed"] } } }),
+    prisma.productReservation.aggregate({ where: { status: "Completed" }, _sum: { totalAmount: true } }),
+    prisma.productReservation.count(),
+    prisma.groomingAppointment.count(),
+    prisma.customer.count({ where: { rewardAvailable: true } }),
+    prisma.groomer.count({ where: { isActive: 1 } }),
+    prisma.groomingAppointment.count({ where: { bookingType: "Home Service", status: { in: ["Pending", "Confirmed"] } } }),
+  ]);
+  return [{ totalClients, activeClients, pendingOrderCount, pendingAppointmentCount, openOrderCount, activeAppointmentCount, claimedSales: Number(completedSales._sum.totalAmount || 0), totalOrderCount, totalAppointmentCount, vipCustomerCount, availableGroomerCount, homeServiceCount }];
+}
+
 const viewCopy: Record<AdminView, { title: string; description: string }> = {
   dashboard: { title: "Dashboard", description: "Your daily operations at a glance." }, products: { title: "Products", description: "Manage product details, pricing, images, and visibility." },
   categories: { title: "Categories", description: "Review how products are organized across the catalog." }, inventory: { title: "Inventory", description: "Monitor quantities and act on low-stock items." },
@@ -28,7 +47,7 @@ const viewCopy: Record<AdminView, { title: string; description: string }> = {
   groomers: { title: "Groomers", description: "Manage groomer availability, contacts, and weekly schedules." }, notifications: { title: "Notifications", description: "Review grooming and product reservation activity." },
   schedules: { title: "Schedules", description: "See upcoming grooming work in chronological order." }, reports: { title: "Business Reports", description: "Understand product demand and appointment activity." },
   auditlogs: { title: "Audit Logs", description: "Search the permanent record of important system actions." },
-  admins: { title: "Admin Management", description: "Manage elevated access through the protected Super Admin area." }, settings: { title: "Settings", description: "Review system and account configuration." },
+  admins: { title: "All Accounts", description: "Create accounts, assign roles, and manage access." }, settings: { title: "Settings", description: "Review system and account configuration." },
   profile: { title: "My Profile", description: "View the account currently signed in to the admin portal." },
 };
 
@@ -48,6 +67,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
   const search = valueOf(query.q).trim().toLowerCase();
   const filter = valueOf(query.filter).trim();
   const notice = valueOf(query.notice);
+  const accountError = valueOf(query.error);
   const now = new Date();
   const reportPeriod = resolveReportPeriod({ range: valueOf(query.range) || "month", from: valueOf(query.from), to: valueOf(query.to) }, now);
   const { range, start: rangeStart, end: rangeEnd } = reportPeriod;
@@ -56,6 +76,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
   if (session?.role !== "Admin" && session?.role !== "SuperAdmin") redirect("/admin/login");
   const currentAdmin = await prisma.user.findFirst({ where: { id: session.userId, role: { in: ["Admin", "SuperAdmin"] }, accountStatus: "Active" }, select: { id: true, firstName: true, surname: true, username: true, email: true, phoneNumber: true, role: true, accountStatus: true, createdAt: true } });
   if (!currentAdmin) redirect("/admin/login");
+  if (activeView === "admins" && currentAdmin.role !== "SuperAdmin") redirect("/admin/dashboard");
 
   const needsAppointments = ["dashboard", "reservations", "schedules", "reports"].includes(activeView);
   const needsOrders = ["dashboard", "orders", "reports"].includes(activeView);
@@ -69,24 +90,10 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     activeView === "services" ? prisma.groomingAddon.findMany({ orderBy: { addonName: "asc" } }) : Promise.resolve([]),
     needsAppointments ? prisma.groomingAppointment.findMany({ where: activeView === "reports" ? reportAppointmentWhere(reportPeriod) : undefined, include: { customer: true, pet: true, style: true, groomer: true }, orderBy: [{ appointmentDate: "desc" }, { appointmentTime: "desc" }], take: activeView === "reports" ? undefined : 100 }) : Promise.resolve([]),
     needsOrders ? prisma.productReservation.findMany({ where: activeView === "reports" ? reportReservationWhere(reportPeriod) : undefined, include: { customer: true, items: { include: { product: { select: { productId: true, productName: true } } } } }, orderBy: { createdAt: "desc" }, take: activeView === "dashboard" ? 10 : activeView === "reports" ? undefined : 100 }) : Promise.resolve([]),
-    needsBusinessTotals ? prisma.$queryRaw<BusinessMetrics[]>`
-      SELECT
-        (SELECT COUNT(*)::int FROM "users" WHERE "role" = 'User') AS "totalClients",
-        (SELECT COUNT(*)::int FROM "users" WHERE "role" = 'User' AND "account_status" = 'Active') AS "activeClients",
-        (SELECT COUNT(*)::int FROM "product_reservations" WHERE "status" = 'Pending') AS "pendingOrderCount",
-        (SELECT COUNT(*)::int FROM "grooming_appointments" WHERE "status" = 'Pending') AS "pendingAppointmentCount",
-        (SELECT COUNT(*)::int FROM "product_reservations" WHERE "status" IN ('Pending', 'Approved', 'Ready for Pickup')) AS "openOrderCount",
-        (SELECT COUNT(*)::int FROM "grooming_appointments" WHERE "status" IN ('Pending', 'Confirmed')) AS "activeAppointmentCount",
-        (SELECT COALESCE(SUM("total_amount"), 0)::float8 FROM "product_reservations" WHERE "status" = 'Completed') AS "claimedSales",
-        (SELECT COUNT(*)::int FROM "product_reservations") AS "totalOrderCount",
-        (SELECT COUNT(*)::int FROM "grooming_appointments") AS "totalAppointmentCount"
-        ,(SELECT COUNT(*)::int FROM "customers" WHERE "reward_available" = true) AS "vipCustomerCount"
-        ,(SELECT COUNT(*)::int FROM "groomers" WHERE "is_active" = 1) AS "availableGroomerCount"
-        ,(SELECT COUNT(*)::int FROM "grooming_appointments" WHERE "booking_type" = 'Home Service' AND "status" IN ('Pending', 'Confirmed')) AS "homeServiceCount"
-    ` : Promise.resolve([]),
+    needsBusinessTotals ? loadBusinessMetrics() : Promise.resolve([]),
     ["dashboard", "groomers"].includes(activeView) ? prisma.groomer.findMany({ include: { availability: { orderBy: { dayOfWeek: "asc" } } }, orderBy: { groomerName: "asc" } }) : Promise.resolve([]),
     activeView === "notifications" ? prisma.notification.findMany({ where: { recipientId: session.userId }, orderBy: { createdAt: "desc" }, take: 100 }) : Promise.resolve([]),
-    activeView === "auditlogs" ? prisma.auditLog.findMany({ where: { AND: [search ? { OR: [{ userName: { contains: search, mode: "insensitive" } }, { action: { contains: search, mode: "insensitive" } }, { module: { contains: search, mode: "insensitive" } }] } : {}, filter && filter !== "All" ? { module: filter } : {}, valueOf(query.from) ? { createdAt: { gte: new Date(`${valueOf(query.from)}T00:00:00+08:00`) } } : {}, valueOf(query.to) ? { createdAt: { lte: new Date(`${valueOf(query.to)}T23:59:59+08:00`) } } : {}] }, orderBy: { createdAt: "desc" }, take: 250 }) : Promise.resolve([]),
+    activeView === "auditlogs" ? prisma.auditLog.findMany({ where: { AND: [search ? { OR: [{ userName: { contains: search } }, { action: { contains: search } }, { module: { contains: search } }] } : {}, filter && filter !== "All" ? { module: filter } : {}, valueOf(query.from) ? { createdAt: { gte: new Date(`${valueOf(query.from)}T00:00:00+08:00`) } } : {}, valueOf(query.to) ? { createdAt: { lte: new Date(`${valueOf(query.to)}T23:59:59+08:00`) } } : {}] }, orderBy: { createdAt: "desc" }, take: 250 }) : Promise.resolve([]),
     activeView === "settings" ? prisma.systemSetting.findUnique({ where: { key: "loyalty_reward_label" } }) : Promise.resolve(null),
     prisma.notification.count({ where: { recipientId: session.userId, isRead: false } }),
   ]);
@@ -158,9 +165,10 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
   if (reportPeriod.to) reportPdfSearch.set("to", reportPeriod.to);
   const reportPdfHref = `/api/admin/reports/pdf?${reportPdfSearch.toString()}`;
 
-  return <AdminShell activeView={activeView} adminName={adminName} adminRole={currentAdmin.role === "SuperAdmin" ? "Super Administrator" : "Administrator"} notificationCount={notifications} pageDescription={viewCopy[activeView].description} pageTitle={viewCopy[activeView].title}>
+  return <AdminShell activeView={activeView} adminName={adminName} adminRole={currentAdmin.role === "SuperAdmin" ? "Super Administrator" : "Administrator"} isSuperAdmin={currentAdmin.role === "SuperAdmin"} notificationCount={notifications} pageDescription={viewCopy[activeView].description} pageTitle={viewCopy[activeView].title}>
     <div className="adminBreadcrumbs"><Link href="/admin/dashboard?view=dashboard">Dashboard</Link>{activeView !== "dashboard" && <><span>/</span><b>{viewCopy[activeView].title}</b></>}</div>
     {notice && <div className="adminToast success" role="status"><span>✓</span>{notice}</div>}
+    {activeView === "admins" && accountError && <div className="adminToast error" role="alert">{accountError === "email-exists" ? "An account with that email already exists." : accountError === "invalid-update" ? "The account change could not be saved. Check the selected role and status." : "Check the account details and confirm that both passwords match."}</div>}
     {activeView === "dashboard" && <>
       <section className="adminWelcome"><div><p className="adminEyebrow">{new Intl.DateTimeFormat("en-PH", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "Asia/Manila" }).format(today)}</p><h2>Welcome back, {currentAdmin.firstName || "Admin"}.</h2><p>Here is what needs your attention across the shop today.</p></div><Link className="adminPrimaryButton" href="/admin/dashboard?view=products#add-product">+ Add Product</Link></section>
       {(notifications > 0) && <section className="adminAttention" id="attention"><AdminIcon name="bell"/><div><b>{notifications} unread notification{notifications === 1 ? "" : "s"}</b><p>New appointments, home-service requests, cancellations, and product reservations appear here.</p></div><Link href="/admin/dashboard?view=notifications">Review now</Link></section>}
@@ -211,7 +219,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
 
     {activeView === "auditlogs" && <section className="adminModule"><SectionHeading eyebrow="ACCOUNTABILITY" title="Audit Logs" detail={`${auditLogs.length} records`} /><form className="adminFilterBar auditFilters" method="get"><input name="view" type="hidden" value="auditlogs"/><label><AdminIcon name="search"/><input name="q" defaultValue={valueOf(query.q)} placeholder="User, action, or module"/></label><select name="filter" defaultValue={filter || "All"}><option>All</option>{["Authentication", "Customer Profile", "Pet", "Grooming Appointment", "Product Reservation", "Product", "Groomer", "Groomer Schedule", "Loyalty", "Admin Account", "Settings"].map((item) => <option key={item}>{item}</option>)}</select><input aria-label="From date" name="from" type="date" defaultValue={valueOf(query.from)}/><input aria-label="To date" name="to" type="date" defaultValue={valueOf(query.to)}/><button>Apply filters</button></form><div className="adminTableCard"><div className="adminTableScroll"><table className="modernAdminTable"><thead><tr><th>Date & Time</th><th>User / Role</th><th>Action</th><th>Module</th><th>Reference</th><th>Description / IP</th></tr></thead><tbody>{auditLogs.map((item) => <tr key={item.auditLogId.toString()}><td><b>{date(item.createdAt)}</b><small>{time(item.createdAt)}</small></td><td><b>{item.userName}</b><small>{item.role}</small></td><td><StatusBadge status={item.action}/></td><td>{item.module}</td><td>{item.recordId || "-"}</td><td>{item.description}<small>{item.ipAddress || "IP unavailable"}</small></td></tr>)}</tbody></table></div>{!auditLogs.length && <EmptyState title="No matching audit entries" text="Change the filters to broaden the results."/>}</div></section>}
 
-    {activeView === "admins" && <section className="adminModule"><SectionHeading eyebrow="ACCESS CONTROL" title="Administrator Management"/><div className="adminInfoCard"><span className="adminInfoIcon"><AdminIcon name="admins" size={28}/></span><div><h3>Protected account management</h3><p>Administrator roles and account access are managed separately to protect sensitive identity controls.</p>{currentAdmin.role === "SuperAdmin" ? <Link className="adminPrimaryButton" href="/superadmin/dashboard">Open Super Admin Center</Link> : <p className="adminPermissionNote">Only a Super Administrator can create or manage administrator accounts.</p>}</div></div></section>}
+    {activeView === "admins" && <AdminAccounts currentId={currentAdmin.id} search={valueOf(query.q).trim()} role={filter} status={valueOf(query.status).trim()} page={Math.max(1, Number.parseInt(valueOf(query.page), 10) || 1)} />}
 
     {activeView === "settings" && <section className="adminModule"><SectionHeading eyebrow="SYSTEM" title="Business Settings"/><div className="adminProfileCard"><form action={updateLoyaltySetting} className="modernAdminForm"><label className="spanTwo">Loyalty reward label<input name="rewardLabel" defaultValue={loyaltySetting?.value || "VIP / Reward Available"} maxLength={120} required/><small>Shown when a customer reaches 10 stamps.</small></label><div className="modernFormActions"><AdminSubmitButton>Save Settings</AdminSubmitButton></div></form></div></section>}
 

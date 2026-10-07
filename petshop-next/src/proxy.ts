@@ -18,9 +18,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/admin/dashboard", request.url));
   }
   if (path === "/admin/login" && session?.role === "SuperAdmin") {
-    return NextResponse.redirect(new URL("/superadmin/dashboard", request.url));
+    return NextResponse.redirect(new URL("/admin/dashboard", request.url));
   }
-  if ((path === "/superadmin/login" || path === "/superadmin/setup") && session?.role === "SuperAdmin") {
+  if (path === "/superadmin/setup" && session?.role === "SuperAdmin") {
     return NextResponse.redirect(new URL("/superadmin/dashboard", request.url));
   }
   const response = NextResponse.next();

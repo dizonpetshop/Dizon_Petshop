@@ -3,9 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -74,9 +73,9 @@ model Product {
   price            Decimal                  @db.Decimal(10, 2)
   stockQuantity    Int                      @default(0) @map("stock_quantity")
   reorderLevel     Int                      @default(5) @map("reorder_level")
-  isActive         Int                      @default(1) @map("is_active") @db.SmallInt
+  isActive         Int                      @default(1) @map("is_active") @db.TinyInt
   description      String?                  @db.Text
-  image            String?                  @db.Text
+  image            String?                  @db.LongText
   createdAt        DateTime                 @default(now()) @map("created_at")
   reservationItems ProductReservationItem[]
 
@@ -113,7 +112,7 @@ model GroomingAddon {
 model Groomer {
   groomerId     Int                   @id @default(autoincrement()) @map("groomer_id")
   groomerName   String                @unique @map("groomer_name") @db.VarChar(100)
-  isActive      Int                   @default(1) @map("is_active") @db.SmallInt
+  isActive      Int                   @default(1) @map("is_active") @db.TinyInt
   contactNumber String?               @map("contact_number") @db.VarChar(20)
   profileImage  String?               @map("profile_image") @db.Text
   createdAt     DateTime              @default(now()) @map("created_at")

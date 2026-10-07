@@ -1,6 +1,7 @@
 import { hash } from "bcryptjs";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { databaseConfigurationError, logDatabaseFailure } from "@/lib/database";
 import { isStrongPassword, passwordResetCodeMatches, readPasswordResetToken, withFailedAttempt } from "@/lib/password-reset";
 
 export const runtime = "nodejs";
@@ -15,9 +16,11 @@ export async function POST(request: Request) {
   if (!/^\d{6}$/.test(code)) return NextResponse.json({ error: "Enter the six-digit verification code." }, { status: 400 });
   if (password !== confirmPassword) return NextResponse.json({ error: "The new passwords do not match." }, { status: 400 });
   if (!isStrongPassword(password)) return NextResponse.json({ error: "Use at least 8 characters with uppercase, lowercase, a number, and a special character." }, { status: 400 });
+  if (databaseConfigurationError()) return NextResponse.json({ error: "Password reset is temporarily unavailable." }, { status: 503 });
 
+  try {
   const user = await prisma.user.findFirst({
-    where: { email: { equals: email, mode: "insensitive" } },
+    where: { email },
     select: { id: true, email: true, role: true, resetToken: true, resetExpires: true },
   });
   const parsed = readPasswordResetToken(user?.resetToken);
@@ -39,4 +42,8 @@ export async function POST(request: Request) {
   });
   if (result.count !== 1) return NextResponse.json({ error: "This code was already used. Request a new code." }, { status: 409 });
   return NextResponse.json({ ok: true });
+  } catch (error) {
+    logDatabaseFailure("Password reset confirmation", error);
+    return NextResponse.json({ error: "Password reset is temporarily unavailable." }, { status: 503 });
+  }
 }

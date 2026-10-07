@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { databaseConfigurationError, logDatabaseFailure } from "@/lib/database";
 import { readSessionToken, sessionCookieName } from "@/lib/session";
 
 export async function GET() {
@@ -8,7 +9,9 @@ export async function GET() {
   if (session?.role !== "Admin" && session?.role !== "SuperAdmin") {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (databaseConfigurationError()) return Response.json({ error: "Notifications are temporarily unavailable." }, { status: 503 });
 
+  try {
   const [count, notifications] = await Promise.all([
     prisma.notification.count({ where: { recipientId: session.userId, isRead: false } }),
     prisma.notification.findMany({
@@ -29,6 +32,10 @@ export async function GET() {
       createdAt: notification.createdAt.toISOString(),
     })),
   }, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
+  } catch (error) {
+    logDatabaseFailure("Admin notifications", error);
+    return Response.json({ error: "Notifications are temporarily unavailable." }, { status: 503 });
+  }
 }
 
 export async function POST(request: Request) {
@@ -37,7 +44,9 @@ export async function POST(request: Request) {
   if (session?.role !== "Admin" && session?.role !== "SuperAdmin") {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (databaseConfigurationError()) return Response.json({ error: "Notifications are temporarily unavailable." }, { status: 503 });
 
+  try {
   const body = await request.json().catch(() => null) as { id?: unknown } | null;
   if (typeof body?.id !== "string" || !/^\d+$/.test(body.id)) {
     return Response.json({ error: "Invalid notification" }, { status: 400 });
@@ -54,4 +63,8 @@ export async function POST(request: Request) {
     data: { isRead: true, readAt: new Date() },
   });
   return Response.json({ link: notification.link }, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
+  } catch (error) {
+    logDatabaseFailure("Admin notification update", error);
+    return Response.json({ error: "Notifications are temporarily unavailable." }, { status: 503 });
+  }
 }

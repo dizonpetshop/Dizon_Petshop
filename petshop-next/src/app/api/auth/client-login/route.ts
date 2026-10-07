@@ -1,6 +1,7 @@
 import { compare } from "bcryptjs";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { databaseConfigurationError, logDatabaseFailure } from "@/lib/database";
 import { createSessionToken, sessionCookieName } from "@/lib/session";
 import { requestIp, writeAuditSafely } from "@/lib/operations";
 
@@ -8,14 +9,16 @@ export async function POST(request: Request) {
   const form = await request.formData();
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   const password = String(form.get("password") ?? "");
-  // MySQL's common collations compare email addresses case-insensitively, while
-  // PostgreSQL text/varchar comparisons are case-sensitive by default.
-  const user = await prisma.user.findFirst({
-    where: { email: { equals: email, mode: "insensitive" } },
-  });
+  if (databaseConfigurationError()) return NextResponse.redirect(new URL("/client/login?error=database-config", request.url), 303);
+  let user;
+  try {
+    user = await prisma.user.findFirst({ where: { email } });
+  } catch (error) {
+    logDatabaseFailure("Client login", error);
+    return NextResponse.redirect(new URL("/client/login?error=unavailable", request.url), 303);
+  }
   const hash = user?.password?.startsWith("$2y$") ? "$2b$" + user.password.slice(4) : user?.password;
-  const valid = user && user.role === "User" && user.accountStatus === "Active" && hash && await compare(password, hash);
-  if (!valid) return NextResponse.redirect(new URL("/client/login?error=invalid", request.url), 303);
+  if (!user || user.role !== "User" || user.accountStatus !== "Active" || !hash || !await compare(password, hash)) return NextResponse.redirect(new URL("/client/login?error=invalid", request.url), 303);
 
   const name = [user.firstName, user.surname].filter(Boolean).join(" ") || "Client";
   const token = await createSessionToken({ userId: user.id, role: "User", name });

@@ -21,7 +21,7 @@ export default async function ClientRegister({ searchParams }: { searchParams: P
           <Link href="/">← Return home</Link>
           <h2>Create an account</h2>
           <p>Tell us who you are to start your pet-care profile.</p>
-          {error && <div className="authError">{error === "exists" ? "That email is already registered." : "Please complete every required field correctly."}</div>}
+          {error && <div className="authError" role="alert">{error === "exists" ? "That email is already registered." : error === "database-config" ? "Registration is unavailable because the database is not configured. Please contact the site administrator." : error === "unavailable" ? "Registration is temporarily unavailable. Please try again later." : "Please complete every required field correctly."}</div>}
           <form className="authForm" action="/api/auth/register" method="post">
             <div className="nameGrid">
               <label>First name<input name="firstName" required /></label>

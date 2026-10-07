@@ -9,7 +9,7 @@ if (!email || !email.includes("@")) {
 const prisma = new PrismaClient();
 try {
   const result = await prisma.user.updateMany({
-    where: { email: { equals: email, mode: "insensitive" } },
+    where: { email },
     data: { role: "Admin", accountStatus: "Active" },
   });
   if (result.count !== 1) {
